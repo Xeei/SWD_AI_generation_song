@@ -36,14 +36,14 @@ class Song(models.Model):
 	duration = models.IntegerField()
 	audio_file_url = models.CharField(max_length=50)
 	share_url = models.CharField(max_length=50)
-	time_stamp = models.DateTimeField(auto_now_add=True, auto_now=True)
+	time_stamp = models.DateTimeField(auto_now_add=True)
 	is_favorite = models.BooleanField(default=False)
 
 
 class PlayList(models.Model):
 	playlist_id = models.UUIDField(primary_key=True, default=uuid.uuid4, editable=False)
 	name = models.CharField(max_length=50)
-	create_at = models.DateTimeField(auto_now=True, auto_now_add=True)
+	create_at = models.DateTimeField(auto_now_add=True)
 
 
 class Creator(models.Model):
