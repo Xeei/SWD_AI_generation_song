@@ -8,17 +8,36 @@
 ## Installation
 ---
 1. Set up python vitual enviroment
+**macos/ubuntu:**
 ```bash
 python3 -m venv .venv
 ```
-2. Active venv
+**window (cmd):**
 ```bash
-source ".venv/bin/activate"
+python -m venv .venv
 ```
+
+2. Active venv
+**macos/ubuntu:**
+```bash
+venv\\Scripts\\activate
+```
+**window (cmd):**
+```bash
+python -m venv .venv
+```
+
 3. Install python environment
 ```bash
 pip install -r requirements.txt
 ```
+
+## How to run
+After activate your python3 vitual environment excute this command
+```bash
+python manage.py runserver
+```
+open browser to open document api http://localhost:8000/api/docs
 
 ## Documentation
 ---
