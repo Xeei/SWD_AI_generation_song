@@ -7,7 +7,7 @@
 
 ## Installation
 ---
-1. Set up python vitual enviroment
+### 1. Set up python vitual enviroment
 **macos/ubuntu:**
 ```bash
 python3 -m venv .venv
@@ -17,17 +17,17 @@ python3 -m venv .venv
 python -m venv .venv
 ```
 
-2. Active venv
+### 2. Active venv
 **macos/ubuntu:**
 ```bash
-venv\\Scripts\\activate
+source .venv/bin/activate
 ```
 **window (cmd):**
 ```bash
-python -m venv .venv
+venv\\Scripts\\activate
 ```
 
-3. Install python environment
+### 3. Install python environment
 ```bash
 pip install -r requirements.txt
 ```
