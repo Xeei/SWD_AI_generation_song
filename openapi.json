@@ -1,265 +1,564 @@
 {
-    "openapi": "3.0.3",
-    "info": {
-        "title": "AI Generation Song API",
-        "version": "1.0.0",
-        "description": "REST API for AI-powered song generation, playlist management, and creator accounts."},
-    "servers": [{"url": "/api"}],
-    "paths": {
-        "/songs/": {
-            "get": {
-                "tags": ["Song"],
-                "summary": "List all songs",
-                "operationId": "listSongs",
-                "responses": {
-                    "200": {
-                        "description": "OK",
-                        "content": {"application/json": {"schema": {"$ref": "#/components/schemas/SongList"}}}}
-                }}
-        },
-        "/songs/create/": {
-            "post": {
-                "tags": ["Song"],
-                "summary": "Create a song",
-                "operationId": "createSong",
-                "requestBody": {
-                    "required": true,
-                    "content": {"application/json": {"schema": {"$ref": "#/components/schemas/SongCreate"}}}},
-                "responses": {
-                    "201": {"description": "Created", "content": {"application/json": {"schema": {"$ref": "#/components/schemas/SongResponse"}}}},
-                    "400": {"description": "Bad Request"}}}
-        },
-        "/songs/{song_id}/": {
-            "get": {
-                "tags": ["Song"],
-                "summary": "Get a song",
-                "operationId": "getSong",
-                "parameters": [{"name": "song_id", "in": "path", "required": true, "schema": {"type": "string", "format": "uuid"}}],
-                "responses": {
-                    "200": {"description": "OK", "content": {"application/json": {"schema": {"$ref": "#/components/schemas/SongResponse"}}}},
-                    "404": {"description": "Not Found"}
-                }}
-        },
-        "/songs/{song_id}/update/": {
-            "put": {
-                "tags": ["Song"],
-                "summary": "Update a song",
-                "operationId": "updateSong",
-                "parameters": [{"name": "song_id", "in": "path", "required": true, "schema": {"type": "string", "format": "uuid"}}],
-                "requestBody": {
-                    "required": true,
-                    "content": {"application/json": {"schema": {"$ref": "#/components/schemas/SongUpdate"}}}},
-                "responses": {
-                    "200": {"description": "OK", "content": {"application/json": {"schema": {"$ref": "#/components/schemas/SongResponse"}}}},
-                    "400": {"description": "Bad Request"},
-                    "404": {"description": "Not Found"}}}
-        },
-        "/songs/{song_id}/delete/": {
-            "delete": {
-                "tags": ["Song"],
-                "summary": "Delete a song",
-                "operationId": "deleteSong",
-                "parameters": [{"name": "song_id", "in": "path", "required": true, "schema": {"type": "string", "format": "uuid"}}],
-                "responses": {
-                    "200": {"description": "Deleted"},
-                    "404": {"description": "Not Found"}}}
-        },
-        "/playlists/": {
-            "get": {
-                "tags": ["PlayList"],
-                "summary": "List all playlists",
-                "operationId": "listPlaylists",
-                "responses": {
-                    "200": {"description": "OK", "content": {"application/json": {"schema": {"$ref": "#/components/schemas/PlayListList"}}}}}}
-        },
-        "/playlists/create/": {
-            "post": {
-                "tags": ["PlayList"],
-                "summary": "Create a playlist",
-                "operationId": "createPlaylist",
-                "requestBody": {
-                    "required": true,
-                    "content": {"application/json": {"schema": {"$ref": "#/components/schemas/PlayListCreate"}}}},
-                "responses": {
-                    "201": {"description": "Created", "content": {"application/json": {"schema": {"$ref": "#/components/schemas/PlayListResponse"}}}},
-                    "400": {"description": "Bad Request"}}}
-        },
-        "/playlists/{playlist_id}/": {
-            "get": {
-                "tags": ["PlayList"],
-                "summary": "Get a playlist",
-                "operationId": "getPlaylist",
-                "parameters": [{"name": "playlist_id", "in": "path", "required": true, "schema": {"type": "string", "format": "uuid"}}],
-                "responses": {
-                    "200": {"description": "OK", "content": {"application/json": {"schema": {"$ref": "#/components/schemas/PlayListResponse"}}}},
-                    "404": {"description": "Not Found"}}}
-        },
-        "/playlists/{playlist_id}/update/": {
-            "put": {
-                "tags": ["PlayList"],
-                "summary": "Update a playlist",
-                "operationId": "updatePlaylist",
-                "parameters": [{"name": "playlist_id", "in": "path", "required": true, "schema": {"type": "string", "format": "uuid"}}],
-                "requestBody": {
-                    "required": true,
-                    "content": {"application/json": {"schema": {"$ref": "#/components/schemas/PlayListCreate"}}}},
-                "responses": {
-                    "200": {"description": "OK", "content": {"application/json": {"schema": {"$ref": "#/components/schemas/PlayListResponse"}}}},
-                    "400": {"description": "Bad Request"},
-                    "404": {"description": "Not Found"}}}
-        },
-        "/playlists/{playlist_id}/delete/": {
-            "delete": {
-                "tags": ["PlayList"],
-                "summary": "Delete a playlist",
-                "operationId": "deletePlaylist",
-                "parameters": [{"name": "playlist_id", "in": "path", "required": true, "schema": {"type": "string", "format": "uuid"}}],
-                "responses": {
-                    "200": {"description": "Deleted"},
-                    "404": {"description": "Not Found"}}}
-        },
-        "/creators/": {
-            "get": {
-                "tags": ["Creator"],
-                "summary": "List all creators",
-                "operationId": "listCreators",
-                "responses": {
-                    "200": {"description": "OK", "content": {"application/json": {"schema": {"$ref": "#/components/schemas/CreatorList"}}}}}}
-        },
-        "/creators/create/": {
-            "post": {
-                "tags": ["Creator"],
-                "summary": "Create a creator",
-                "operationId": "createCreator",
-                "requestBody": {
-                    "required": true,
-                    "content": {"application/json": {"schema": {"$ref": "#/components/schemas/CreatorCreate"}}}},
-                "responses": {
-                    "201": {"description": "Created", "content": {"application/json": {"schema": {"$ref": "#/components/schemas/CreatorResponse"}}}},
-                    "400": {"description": "Bad Request"}}}
-        },
-        "/creators/{creator_id}/": {
-            "get": {
-                "tags": ["Creator"],
-                "summary": "Get a creator",
-                "operationId": "getCreator",
-                "parameters": [{"name": "creator_id", "in": "path", "required": true, "schema": {"type": "string", "format": "uuid"}}],
-                "responses": {
-                    "200": {"description": "OK", "content": {"application/json": {"schema": {"$ref": "#/components/schemas/CreatorResponse"}}}},
-                    "404": {"description": "Not Found"}}}
-        },
-        "/creators/{creator_id}/update/": {
-            "put": {
-                "tags": ["Creator"],
-                "summary": "Update a creator",
-                "operationId": "updateCreator",
-                "parameters": [{"name": "creator_id", "in": "path", "required": true, "schema": {"type": "string", "format": "uuid"}}],
-                "requestBody": {
-                    "required": true,
-                    "content": {"application/json": {"schema": {"$ref": "#/components/schemas/CreatorCreate"}}}},
-                "responses": {
-                    "200": {"description": "OK", "content": {"application/json": {"schema": {"$ref": "#/components/schemas/CreatorResponse"}}}},
-                    "400": {"description": "Bad Request"},
-                    "404": {"description": "Not Found"}}}
-        },
-        "/creators/{creator_id}/delete/": {
-            "delete": {
-                "tags": ["Creator"],
-                "summary": "Delete a creator",
-                "operationId": "deleteCreator",
-                "parameters": [{"name": "creator_id", "in": "path", "required": true, "schema": {"type": "string", "format": "uuid"}}],
-                "responses": {
-                    "200": {"description": "Deleted"},
-                    "404": {"description": "Not Found"}}}
-        }},
-    "components": {
-        "schemas": {
-            "Song": {
-                "type": "object",
-                "properties": {
-                    "song_id": {"type": "string", "format": "uuid"},
-                    "title": {"type": "string"},
-                    "occasion": {"type": "string"},
-                    "generation_status": {"type": "integer", "enum": [1, 2, 3], "description": "1=Generating, 2=Generated, 3=Error"},
-                    "mood_tone": {"type": "integer", "enum": [1, 2, 3, 4, 5, 6], "description": "1=Happy, 2=Sad, 3=Upbeat, 4=Romantic, 5=Chill, 6=Epic"},
-                    "voice_type": {"type": "integer", "enum": [1, 2, 3, 4, 5], "description": "1=Male Pop, 2=Female Pop, 3=Male Rock, 4=Female Rock, 5=Instrumental Only"},
-                    "lyrics_content": {"type": "string"},
-                    "duration": {"type": "integer"},
-                    "audio_file_url": {"type": "string"},
-                    "share_url": {"type": "string"},
-                    "is_favorite": {"type": "boolean"},
-                    "time_stamp": {"type": "string", "format": "date-time"}}},
-            "SongCreate": {
-                "type": "object",
-                "required": ["title", "occasion", "mood_tone", "voice_type", "lyrics_content", "duration", "audio_file_url", "share_url"],
-                "properties": {
-                    "title": {"type": "string"},
-                    "occasion": {"type": "string"},
-                    "generation_status": {"type": "integer", "default": 1},
-                    "mood_tone": {"type": "integer"},
-                    "voice_type": {"type": "integer"},
-                    "lyrics_content": {"type": "string"},
-                    "duration": {"type": "integer"},
-                    "audio_file_url": {"type": "string"},
-                    "share_url": {"type": "string"},
-                    "is_favorite": {"type": "boolean", "default": false}}},
-            "SongUpdate": {
-                "type": "object",
-                "properties": {
-                    "title": {"type": "string"},
-                    "occasion": {"type": "string"},
-                    "generation_status": {"type": "integer"},
-                    "mood_tone": {"type": "integer"},
-                    "voice_type": {"type": "integer"},
-                    "lyrics_content": {"type": "string"},
-                    "duration": {"type": "integer"},
-                    "audio_file_url": {"type": "string"},
-                    "share_url": {"type": "string"},
-                    "is_favorite": {"type": "boolean"}}},
-            "SongResponse": {
-                "type": "object",
-                "properties": {
-                    "message": {"type": "string"},
-                    "song": {"$ref": "#/components/schemas/Song"}}},
-            "SongList": {
-                "type": "object",
-                "properties": {
-                    "song_list": {"type": "array", "items": {"$ref": "#/components/schemas/Song"}}}},
-            "PlayList": {
-                "type": "object",
-                "properties": {
-                    "playlist_id": {"type": "string", "format": "uuid"},
-                    "name": {"type": "string"},
-                    "create_at": {"type": "string", "format": "date-time"}}},
-            "PlayListCreate": {
-                "type": "object",
-                "required": ["name"],
-                "properties": {"name": {"type": "string"}}},
-            "PlayListResponse": {
-                "type": "object",
-                "properties": {
-                    "message": {"type": "string"},
-                    "playlist": {"$ref": "#/components/schemas/PlayList"}}},
-            "PlayListList": {
-                "type": "object",
-                "properties": {
-                    "playlist_list": {"type": "array", "items": {"$ref": "#/components/schemas/PlayList"}}}},
-            "Creator": {
-                "type": "object",
-                "properties": {
-                    "creator_id": {"type": "string", "format": "uuid"},
-                    "email": {"type": "string", "format": "email"}}},
-            "CreatorCreate": {
-                "type": "object",
-                "required": ["email"],
-                "properties": {"email": {"type": "string", "format": "email"}}},
-            "CreatorResponse": {
-                "type": "object",
-                "properties": {
-                    "message": {"type": "string"},
-                    "creator": {"$ref": "#/components/schemas/Creator"}}},
-            "CreatorList": {
-                "type": "object",
-                "properties": {
-                    "creator_list": {"type": "array", "items": {"$ref": "#/components/schemas/Creator"}}}}}
-    }}
+	"openapi": "3.0.3",
+	"info": {
+		"title": "AI Generation Song API",
+		"version": "1.0.0",
+		"description": "REST API for AI-powered song generation, playlist management, and creator accounts."
+	},
+	"servers": [{ "url": "/api" }],
+	"paths": {
+		"/songs/": {
+			"get": {
+				"tags": ["Song"],
+				"summary": "List all songs",
+				"operationId": "listSongs",
+				"responses": {
+					"200": {
+						"description": "OK",
+						"content": {
+							"application/json": {
+								"schema": {
+									"$ref": "#/components/schemas/SongList"
+								}
+							}
+						}
+					}
+				}
+			}
+		},
+		"/songs/create/": {
+			"post": {
+				"tags": ["Song"],
+				"summary": "Create a song",
+				"operationId": "createSong",
+				"requestBody": {
+					"required": true,
+					"content": {
+						"application/json": {
+							"schema": {
+								"$ref": "#/components/schemas/SongCreate"
+							}
+						}
+					}
+				},
+				"responses": {
+					"201": {
+						"description": "Created",
+						"content": {
+							"application/json": {
+								"schema": {
+									"$ref": "#/components/schemas/SongResponse"
+								}
+							}
+						}
+					},
+					"400": { "description": "Bad Request" }
+				}
+			}
+		},
+		"/songs/{song_id}/": {
+			"get": {
+				"tags": ["Song"],
+				"summary": "Get a song",
+				"operationId": "getSong",
+				"parameters": [
+					{
+						"name": "song_id",
+						"in": "path",
+						"required": true,
+						"schema": { "type": "string", "format": "uuid" }
+					}
+				],
+				"responses": {
+					"200": {
+						"description": "OK",
+						"content": {
+							"application/json": {
+								"schema": {
+									"$ref": "#/components/schemas/SongResponse"
+								}
+							}
+						}
+					},
+					"404": { "description": "Not Found" }
+				}
+			}
+		},
+		"/songs/{song_id}/update/": {
+			"put": {
+				"tags": ["Song"],
+				"summary": "Update a song",
+				"operationId": "updateSong",
+				"parameters": [
+					{
+						"name": "song_id",
+						"in": "path",
+						"required": true,
+						"schema": { "type": "string", "format": "uuid" }
+					}
+				],
+				"requestBody": {
+					"required": true,
+					"content": {
+						"application/json": {
+							"schema": {
+								"$ref": "#/components/schemas/SongUpdate"
+							}
+						}
+					}
+				},
+				"responses": {
+					"200": {
+						"description": "OK",
+						"content": {
+							"application/json": {
+								"schema": {
+									"$ref": "#/components/schemas/SongResponse"
+								}
+							}
+						}
+					},
+					"400": { "description": "Bad Request" },
+					"404": { "description": "Not Found" }
+				}
+			}
+		},
+		"/songs/{song_id}/delete/": {
+			"delete": {
+				"tags": ["Song"],
+				"summary": "Delete a song",
+				"operationId": "deleteSong",
+				"parameters": [
+					{
+						"name": "song_id",
+						"in": "path",
+						"required": true,
+						"schema": { "type": "string", "format": "uuid" }
+					}
+				],
+				"responses": {
+					"200": { "description": "Deleted" },
+					"404": { "description": "Not Found" }
+				}
+			}
+		},
+		"/playlists/": {
+			"get": {
+				"tags": ["PlayList"],
+				"summary": "List all playlists",
+				"operationId": "listPlaylists",
+				"responses": {
+					"200": {
+						"description": "OK",
+						"content": {
+							"application/json": {
+								"schema": {
+									"$ref": "#/components/schemas/PlayListList"
+								}
+							}
+						}
+					}
+				}
+			}
+		},
+		"/playlists/create/": {
+			"post": {
+				"tags": ["PlayList"],
+				"summary": "Create a playlist",
+				"operationId": "createPlaylist",
+				"requestBody": {
+					"required": true,
+					"content": {
+						"application/json": {
+							"schema": {
+								"$ref": "#/components/schemas/PlayListCreate"
+							}
+						}
+					}
+				},
+				"responses": {
+					"201": {
+						"description": "Created",
+						"content": {
+							"application/json": {
+								"schema": {
+									"$ref": "#/components/schemas/PlayListResponse"
+								}
+							}
+						}
+					},
+					"400": { "description": "Bad Request" }
+				}
+			}
+		},
+		"/playlists/{playlist_id}/": {
+			"get": {
+				"tags": ["PlayList"],
+				"summary": "Get a playlist",
+				"operationId": "getPlaylist",
+				"parameters": [
+					{
+						"name": "playlist_id",
+						"in": "path",
+						"required": true,
+						"schema": { "type": "string", "format": "uuid" }
+					}
+				],
+				"responses": {
+					"200": {
+						"description": "OK",
+						"content": {
+							"application/json": {
+								"schema": {
+									"$ref": "#/components/schemas/PlayListResponse"
+								}
+							}
+						}
+					},
+					"404": { "description": "Not Found" }
+				}
+			}
+		},
+		"/playlists/{playlist_id}/update/": {
+			"put": {
+				"tags": ["PlayList"],
+				"summary": "Update a playlist",
+				"operationId": "updatePlaylist",
+				"parameters": [
+					{
+						"name": "playlist_id",
+						"in": "path",
+						"required": true,
+						"schema": { "type": "string", "format": "uuid" }
+					}
+				],
+				"requestBody": {
+					"required": true,
+					"content": {
+						"application/json": {
+							"schema": {
+								"$ref": "#/components/schemas/PlayListCreate"
+							}
+						}
+					}
+				},
+				"responses": {
+					"200": {
+						"description": "OK",
+						"content": {
+							"application/json": {
+								"schema": {
+									"$ref": "#/components/schemas/PlayListResponse"
+								}
+							}
+						}
+					},
+					"400": { "description": "Bad Request" },
+					"404": { "description": "Not Found" }
+				}
+			}
+		},
+		"/playlists/{playlist_id}/delete/": {
+			"delete": {
+				"tags": ["PlayList"],
+				"summary": "Delete a playlist",
+				"operationId": "deletePlaylist",
+				"parameters": [
+					{
+						"name": "playlist_id",
+						"in": "path",
+						"required": true,
+						"schema": { "type": "string", "format": "uuid" }
+					}
+				],
+				"responses": {
+					"200": { "description": "Deleted" },
+					"404": { "description": "Not Found" }
+				}
+			}
+		},
+		"/creators/": {
+			"get": {
+				"tags": ["Creator"],
+				"summary": "List all creators",
+				"operationId": "listCreators",
+				"responses": {
+					"200": {
+						"description": "OK",
+						"content": {
+							"application/json": {
+								"schema": {
+									"$ref": "#/components/schemas/CreatorList"
+								}
+							}
+						}
+					}
+				}
+			}
+		},
+		"/creators/create/": {
+			"post": {
+				"tags": ["Creator"],
+				"summary": "Create a creator",
+				"operationId": "createCreator",
+				"requestBody": {
+					"required": true,
+					"content": {
+						"application/json": {
+							"schema": {
+								"$ref": "#/components/schemas/CreatorCreate"
+							}
+						}
+					}
+				},
+				"responses": {
+					"201": {
+						"description": "Created",
+						"content": {
+							"application/json": {
+								"schema": {
+									"$ref": "#/components/schemas/CreatorResponse"
+								}
+							}
+						}
+					},
+					"400": { "description": "Bad Request" }
+				}
+			}
+		},
+		"/creators/{creator_id}/": {
+			"get": {
+				"tags": ["Creator"],
+				"summary": "Get a creator",
+				"operationId": "getCreator",
+				"parameters": [
+					{
+						"name": "creator_id",
+						"in": "path",
+						"required": true,
+						"schema": { "type": "string", "format": "uuid" }
+					}
+				],
+				"responses": {
+					"200": {
+						"description": "OK",
+						"content": {
+							"application/json": {
+								"schema": {
+									"$ref": "#/components/schemas/CreatorResponse"
+								}
+							}
+						}
+					},
+					"404": { "description": "Not Found" }
+				}
+			}
+		},
+		"/creators/{creator_id}/update/": {
+			"put": {
+				"tags": ["Creator"],
+				"summary": "Update a creator",
+				"operationId": "updateCreator",
+				"parameters": [
+					{
+						"name": "creator_id",
+						"in": "path",
+						"required": true,
+						"schema": { "type": "string", "format": "uuid" }
+					}
+				],
+				"requestBody": {
+					"required": true,
+					"content": {
+						"application/json": {
+							"schema": {
+								"$ref": "#/components/schemas/CreatorCreate"
+							}
+						}
+					}
+				},
+				"responses": {
+					"200": {
+						"description": "OK",
+						"content": {
+							"application/json": {
+								"schema": {
+									"$ref": "#/components/schemas/CreatorResponse"
+								}
+							}
+						}
+					},
+					"400": { "description": "Bad Request" },
+					"404": { "description": "Not Found" }
+				}
+			}
+		},
+		"/creators/{creator_id}/delete/": {
+			"delete": {
+				"tags": ["Creator"],
+				"summary": "Delete a creator",
+				"operationId": "deleteCreator",
+				"parameters": [
+					{
+						"name": "creator_id",
+						"in": "path",
+						"required": true,
+						"schema": { "type": "string", "format": "uuid" }
+					}
+				],
+				"responses": {
+					"200": { "description": "Deleted" },
+					"404": { "description": "Not Found" }
+				}
+			}
+		}
+	},
+	"components": {
+		"schemas": {
+			"Song": {
+				"type": "object",
+				"properties": {
+					"song_id": { "type": "string", "format": "uuid" },
+					"title": { "type": "string" },
+					"occasion": { "type": "string" },
+					"generation_status": {
+						"type": "integer",
+						"enum": [1, 2, 3],
+						"description": "1=Generating, 2=Generated, 3=Error"
+					},
+					"mood_tone": {
+						"type": "integer",
+						"enum": [1, 2, 3, 4, 5, 6],
+						"description": "1=Happy, 2=Sad, 3=Upbeat, 4=Romantic, 5=Chill, 6=Epic"
+					},
+					"voice_type": {
+						"type": "integer",
+						"enum": [1, 2, 3, 4, 5],
+						"description": "1=Male Pop, 2=Female Pop, 3=Male Rock, 4=Female Rock, 5=Instrumental Only"
+					},
+					"lyrics_content": { "type": "string" },
+					"duration": { "type": "integer" },
+					"audio_file_url": { "type": "string" },
+					"share_url": { "type": "string" },
+					"is_favorite": { "type": "boolean" },
+					"time_stamp": { "type": "string", "format": "date-time" }
+				}
+			},
+			"SongCreate": {
+				"type": "object",
+				"required": [
+					"title",
+					"occasion",
+					"mood_tone",
+					"voice_type",
+					"lyrics_content",
+					"duration",
+					"audio_file_url",
+					"share_url"
+				],
+				"properties": {
+					"title": { "type": "string" },
+					"occasion": { "type": "string" },
+					"generation_status": { "type": "integer", "default": 1 },
+					"mood_tone": { "type": "integer" },
+					"voice_type": { "type": "integer" },
+					"lyrics_content": { "type": "string" },
+					"duration": { "type": "integer" },
+					"audio_file_url": { "type": "string" },
+					"share_url": { "type": "string" },
+					"is_favorite": { "type": "boolean", "default": false }
+				}
+			},
+			"SongUpdate": {
+				"type": "object",
+				"properties": {
+					"title": { "type": "string" },
+					"occasion": { "type": "string" },
+					"generation_status": { "type": "integer" },
+					"mood_tone": { "type": "integer" },
+					"voice_type": { "type": "integer" },
+					"lyrics_content": { "type": "string" },
+					"duration": { "type": "integer" },
+					"audio_file_url": { "type": "string" },
+					"share_url": { "type": "string" },
+					"is_favorite": { "type": "boolean" }
+				}
+			},
+			"SongResponse": {
+				"type": "object",
+				"properties": {
+					"message": { "type": "string" },
+					"song": { "$ref": "#/components/schemas/Song" }
+				}
+			},
+			"SongList": {
+				"type": "object",
+				"properties": {
+					"song_list": {
+						"type": "array",
+						"items": { "$ref": "#/components/schemas/Song" }
+					}
+				}
+			},
+			"PlayList": {
+				"type": "object",
+				"properties": {
+					"playlist_id": { "type": "string", "format": "uuid" },
+					"name": { "type": "string" },
+					"create_at": { "type": "string", "format": "date-time" }
+				}
+			},
+			"PlayListCreate": {
+				"type": "object",
+				"required": ["name"],
+				"properties": { "name": { "type": "string" } }
+			},
+			"PlayListResponse": {
+				"type": "object",
+				"properties": {
+					"message": { "type": "string" },
+					"playlist": { "$ref": "#/components/schemas/PlayList" }
+				}
+			},
+			"PlayListList": {
+				"type": "object",
+				"properties": {
+					"playlist_list": {
+						"type": "array",
+						"items": { "$ref": "#/components/schemas/PlayList" }
+					}
+				}
+			},
+			"Creator": {
+				"type": "object",
+				"properties": {
+					"creator_id": { "type": "string", "format": "uuid" },
+					"email": { "type": "string", "format": "email" }
+				}
+			},
+			"CreatorCreate": {
+				"type": "object",
+				"required": ["email"],
+				"properties": {
+					"email": { "type": "string", "format": "email" }
+				}
+			},
+			"CreatorResponse": {
+				"type": "object",
+				"properties": {
+					"message": { "type": "string" },
+					"creator": { "$ref": "#/components/schemas/Creator" }
+				}
+			},
+			"CreatorList": {
+				"type": "object",
+				"properties": {
+					"creator_list": {
+						"type": "array",
+						"items": { "$ref": "#/components/schemas/Creator" }
+					}
+				}
+			}
+		}
+	}
+}
