@@ -1,37 +1,190 @@
 import json
 
-from django.http import JsonResponse, HttpResponse
+from django.http import JsonResponse
+from django.views.decorators.csrf import csrf_exempt
+from django.shortcuts import render
+
 from .models import Song, PlayList, Creator
 
-def schema_view(request):
-	with open('openapi.json', 'r') as file:
-		data = json.load(file)
-	return JsonResponse(data)
+
+# ── Exceptions ────────────────────────────────────────────────────────────────
+
+class NotFound(Exception):
+	pass
 
 
-def swagger_ui_view(request):
-    html = """<!DOCTYPE html>
-<html>
-<head>
-  <title>AI Generation Song API Docs</title>
-  <meta charset="utf-8"/>
-  <meta name="viewport" content="width=device-width, initial-scale=1">
-  <link rel="stylesheet" type="text/css" href="https://unpkg.com/swagger-ui-dist@5/swagger-ui.css">
-</head>
-<body>
-<div id="swagger-ui"></div>
-<script src="https://unpkg.com/swagger-ui-dist@5/swagger-ui-bundle.js"></script>
-<script>
-  SwaggerUIBundle({
-    url: "/api/schema/",
-    dom_id: "#swagger-ui",
-    presets: [SwaggerUIBundle.presets.apis, SwaggerUIBundle.SwaggerUIStandalonePreset],
-    layout: "BaseLayout",
-  });
-</script>
-</body>
-</html>"""
-    return HttpResponse(html)
+class ValidationError(Exception):
+	def __init__(self, message, fields=None):
+		super().__init__(message)
+		self.fields = fields or []
+
+
+# ── Use Cases ─────────────────────────────────────────────────────────────────
+
+class SongUseCase:
+	def list_songs(self):
+		return [self._to_dict(s) for s in Song.objects.all()]
+
+	def get_song(self, song_id):
+		try:
+			return self._to_dict(Song.objects.get(pk=song_id))
+		except Song.DoesNotExist:
+			raise NotFound("Song not found")
+
+	def create_song(self, data):
+		required = [
+			"title", "occasion", "mood_tone", "voice_type",
+			"lyrics_content", "duration", "audio_file_url", "share_url",
+		]
+		missing = [f for f in required if data.get(f) in (None, "")]
+		if missing:
+			raise ValidationError("Missing required fields", fields=missing)
+		try:
+			song = Song.objects.create(
+				title=data["title"],
+				occasion=data["occasion"],
+				generation_status=int(data.get("generation_status", Song._meta.get_field("generation_status").default)),
+				mood_tone=int(data["mood_tone"]),
+				voice_type=int(data["voice_type"]),
+				lyrics_content=data["lyrics_content"],
+				duration=int(data["duration"]),
+				audio_file_url=data["audio_file_url"],
+				share_url=data["share_url"],
+				is_favorite=bool(data.get("is_favorite", False)),
+			)
+		except (TypeError, ValueError):
+			raise ValidationError("Invalid field type")
+		return self._to_dict(song)
+
+	def update_song(self, song_id, data):
+		try:
+			song = Song.objects.get(pk=song_id)
+		except Song.DoesNotExist:
+			raise NotFound("Song not found")
+		updatable = {
+			"title": str, "occasion": str, "lyrics_content": str,
+			"audio_file_url": str, "share_url": str,
+			"generation_status": int, "mood_tone": int, "voice_type": int, "duration": int,
+			"is_favorite": bool,
+		}
+		try:
+			for field, cast in updatable.items():
+				if field in data:
+					setattr(song, field, cast(data[field]))
+		except (TypeError, ValueError):
+			raise ValidationError("Invalid field type")
+		song.save()
+		return self._to_dict(song)
+
+	def delete_song(self, song_id):
+		try:
+			Song.objects.get(pk=song_id).delete()
+		except Song.DoesNotExist:
+			raise NotFound("Song not found")
+
+	def _to_dict(self, s):
+		return {
+			"song_id": str(s.song_id),
+			"title": s.title,
+			"occasion": s.occasion,
+			"generation_status": s.generation_status,
+			"mood_tone": s.mood_tone,
+			"voice_type": s.voice_type,
+			"lyrics_content": s.lyrics_content,
+			"duration": s.duration,
+			"audio_file_url": s.audio_file_url,
+			"share_url": s.share_url,
+			"is_favorite": s.is_favorite,
+			"time_stamp": s.time_stamp.isoformat(),
+		}
+
+
+class PlaylistUseCase:
+	def list_playlists(self):
+		return [self._to_dict(p) for p in PlayList.objects.all()]
+
+	def get_playlist(self, playlist_id):
+		try:
+			return self._to_dict(PlayList.objects.get(pk=playlist_id))
+		except PlayList.DoesNotExist:
+			raise NotFound("PlayList not found")
+
+	def create_playlist(self, data):
+		if not data.get("name"):
+			raise ValidationError("Missing required fields", fields=["name"])
+		playlist = PlayList.objects.create(name=data["name"])
+		return self._to_dict(playlist)
+
+	def update_playlist(self, playlist_id, data):
+		try:
+			playlist = PlayList.objects.get(pk=playlist_id)
+		except PlayList.DoesNotExist:
+			raise NotFound("PlayList not found")
+		if not data.get("name"):
+			raise ValidationError("Missing required fields", fields=["name"])
+		playlist.name = data["name"]
+		playlist.save()
+		return self._to_dict(playlist)
+
+	def delete_playlist(self, playlist_id):
+		try:
+			PlayList.objects.get(pk=playlist_id).delete()
+		except PlayList.DoesNotExist:
+			raise NotFound("PlayList not found")
+
+	def _to_dict(self, p):
+		return {
+			"playlist_id": str(p.playlist_id),
+			"name": p.name,
+			"create_at": p.create_at.isoformat(),
+		}
+
+
+class CreatorUseCase:
+	def list_creators(self):
+		return [self._to_dict(c) for c in Creator.objects.all()]
+
+	def get_creator(self, creator_id):
+		try:
+			return self._to_dict(Creator.objects.get(pk=creator_id))
+		except Creator.DoesNotExist:
+			raise NotFound("Creator not found")
+
+	def create_creator(self, data):
+		if not data.get("email"):
+			raise ValidationError("Missing required fields", fields=["email"])
+		if Creator.objects.filter(email=data["email"]).exists():
+			raise ValidationError("Email already exists")
+		creator = Creator.objects.create(email=data["email"])
+		return self._to_dict(creator)
+
+	def update_creator(self, creator_id, data):
+		try:
+			creator = Creator.objects.get(pk=creator_id)
+		except Creator.DoesNotExist:
+			raise NotFound("Creator not found")
+		if not data.get("email"):
+			raise ValidationError("Missing required fields", fields=["email"])
+		if Creator.objects.filter(email=data["email"]).exclude(pk=creator_id).exists():
+			raise ValidationError("Email already exists")
+		creator.email = data["email"]
+		creator.save()
+		return self._to_dict(creator)
+
+	def delete_creator(self, creator_id):
+		try:
+			Creator.objects.get(pk=creator_id).delete()
+		except Creator.DoesNotExist:
+			raise NotFound("Creator not found")
+
+	def _to_dict(self, c):
+		return {
+			"creator_id": str(c.creator_id),
+			"email": c.email,
+		}
+
+
+# ── Helpers ───────────────────────────────────────────────────────────────────
 
 def _parse_json(request):
 	try:
@@ -40,263 +193,169 @@ def _parse_json(request):
 		return None, JsonResponse({"error": "Invalid JSON payload"}, status=400)
 
 
-def _song_dict(s):
-	return {
-		"song_id": str(s.song_id),
-		"title": s.title,
-		"occasion": s.occasion,
-		"generation_status": s.generation_status,
-		"mood_tone": s.mood_tone,
-		"voice_type": s.voice_type,
-		"lyrics_content": s.lyrics_content,
-		"duration": s.duration,
-		"audio_file_url": s.audio_file_url,
-		"share_url": s.share_url,
-		"is_favorite": s.is_favorite,
-		"time_stamp": s.time_stamp.isoformat(),
-	}
+def _error_response(e):
+	if isinstance(e, NotFound):
+		return JsonResponse({"error": str(e)}, status=404)
+	body = {"error": str(e)}
+	if e.fields:
+		body["fields"] = e.fields
+	return JsonResponse(body, status=400)
 
 
-def _playlist_dict(p):
-	return {
-		"playlist_id": str(p.playlist_id),
-		"name": p.name,
-		"create_at": p.create_at.isoformat(),
-	}
-
-
-def _creator_dict(c):
-	return {
-		"creator_id": str(c.creator_id),
-		"email": c.email,
-	}
-
-
-# ── Song ─────────────────────────────────────────────────────────────────────
+# Song
 
 def song_list_view(request):
-	songs = Song.objects.all()
-	return JsonResponse({"song_list": list(songs.values())})
+	return JsonResponse({"song_list": SongUseCase().list_songs()})
 
 
+@csrf_exempt
 def create_song_view(request):
 	if request.method != "POST":
 		return JsonResponse({"error": "Method not allowed"}, status=405)
-
 	payload, err = _parse_json(request)
 	if err:
 		return err
-
-	required_fields = [
-		"title", "occasion", "mood_tone", "voice_type",
-		"lyrics_content", "duration", "audio_file_url", "share_url",
-	]
-	missing_fields = [f for f in required_fields if payload.get(f) in (None, "")]
-	if missing_fields:
-		return JsonResponse({"error": "Missing required fields", "fields": missing_fields}, status=400)
-
 	try:
-		song = Song.objects.create(
-			title=payload.get("title"),
-			occasion=payload.get("occasion"),
-			generation_status=int(payload.get("generation_status", Song._meta.get_field("generation_status").default)),
-			mood_tone=int(payload.get("mood_tone")),
-			voice_type=int(payload.get("voice_type")),
-			lyrics_content=payload.get("lyrics_content"),
-			duration=int(payload.get("duration")),
-			audio_file_url=payload.get("audio_file_url"),
-			share_url=payload.get("share_url"),
-			is_favorite=bool(payload.get("is_favorite", False)),
-		)
-	except (TypeError, ValueError):
-		return JsonResponse({"error": "Invalid field type"}, status=400)
-
-	return JsonResponse({"message": "Song created successfully", "song": _song_dict(song)}, status=201)
+		song = SongUseCase().create_song(payload)
+	except (NotFound, ValidationError) as e:
+		return _error_response(e)
+	return JsonResponse({"message": "Song created successfully", "song": song}, status=201)
 
 
 def song_detail_view(request, song_id):
 	try:
-		song = Song.objects.get(pk=song_id)
-	except Song.DoesNotExist:
-		return JsonResponse({"error": "Song not found"}, status=404)
+		song = SongUseCase().get_song(song_id)
+	except (NotFound, ValidationError) as e:
+		return _error_response(e)
+	return JsonResponse({"song": song})
 
-	return JsonResponse({"song": _song_dict(song)})
 
-
+@csrf_exempt
 def update_song_view(request, song_id):
 	if request.method != "PUT":
 		return JsonResponse({"error": "Method not allowed"}, status=405)
-
-	try:
-		song = Song.objects.get(pk=song_id)
-	except Song.DoesNotExist:
-		return JsonResponse({"error": "Song not found"}, status=404)
-
 	payload, err = _parse_json(request)
 	if err:
 		return err
-
-	updatable = {
-		"title": str, "occasion": str, "lyrics_content": str,
-		"audio_file_url": str, "share_url": str,
-		"generation_status": int, "mood_tone": int, "voice_type": int, "duration": int,
-		"is_favorite": bool,
-	}
 	try:
-		for field, cast in updatable.items():
-			if field in payload:
-				setattr(song, field, cast(payload[field]))
-	except (TypeError, ValueError):
-		return JsonResponse({"error": "Invalid field type"}, status=400)
-
-	song.save()
-	return JsonResponse({"message": "Song updated successfully", "song": _song_dict(song)})
+		song = SongUseCase().update_song(song_id, payload)
+	except (NotFound, ValidationError) as e:
+		return _error_response(e)
+	return JsonResponse({"message": "Song updated successfully", "song": song})
 
 
+@csrf_exempt
 def delete_song_view(request, song_id):
 	if request.method != "DELETE":
 		return JsonResponse({"error": "Method not allowed"}, status=405)
-
 	try:
-		song = Song.objects.get(pk=song_id)
-	except Song.DoesNotExist:
-		return JsonResponse({"error": "Song not found"}, status=404)
-
-	song.delete()
+		SongUseCase().delete_song(song_id)
+	except (NotFound, ValidationError) as e:
+		return _error_response(e)
 	return JsonResponse({"message": "Song deleted successfully"})
 
 
-# ── PlayList ──────────────────────────────────────────────────────────────────
+# PlayList
 
 def playlist_list_view(request):
-	playlists = PlayList.objects.all()
-	return JsonResponse({"playlist_list": list(playlists.values())})
+	return JsonResponse({"playlist_list": PlaylistUseCase().list_playlists()})
 
 
+@csrf_exempt
 def create_playlist_view(request):
 	if request.method != "POST":
 		return JsonResponse({"error": "Method not allowed"}, status=405)
-
 	payload, err = _parse_json(request)
 	if err:
 		return err
-
-	if not payload.get("name"):
-		return JsonResponse({"error": "Missing required fields", "fields": ["name"]}, status=400)
-
-	playlist = PlayList.objects.create(name=payload["name"])
-	return JsonResponse({"message": "PlayList created successfully", "playlist": _playlist_dict(playlist)}, status=201)
+	try:
+		playlist = PlaylistUseCase().create_playlist(payload)
+	except (NotFound, ValidationError) as e:
+		return _error_response(e)
+	return JsonResponse({"message": "PlayList created successfully", "playlist": playlist}, status=201)
 
 
 def playlist_detail_view(request, playlist_id):
 	try:
-		playlist = PlayList.objects.get(pk=playlist_id)
-	except PlayList.DoesNotExist:
-		return JsonResponse({"error": "PlayList not found"}, status=404)
+		playlist = PlaylistUseCase().get_playlist(playlist_id)
+	except (NotFound, ValidationError) as e:
+		return _error_response(e)
+	return JsonResponse({"playlist": playlist})
 
-	return JsonResponse({"playlist": _playlist_dict(playlist)})
 
-
+@csrf_exempt
 def update_playlist_view(request, playlist_id):
 	if request.method != "PUT":
 		return JsonResponse({"error": "Method not allowed"}, status=405)
-
-	try:
-		playlist = PlayList.objects.get(pk=playlist_id)
-	except PlayList.DoesNotExist:
-		return JsonResponse({"error": "PlayList not found"}, status=404)
-
 	payload, err = _parse_json(request)
 	if err:
 		return err
-
-	if not payload.get("name"):
-		return JsonResponse({"error": "Missing required fields", "fields": ["name"]}, status=400)
-
-	playlist.name = payload["name"]
-	playlist.save()
-	return JsonResponse({"message": "PlayList updated successfully", "playlist": _playlist_dict(playlist)})
+	try:
+		playlist = PlaylistUseCase().update_playlist(playlist_id, payload)
+	except (NotFound, ValidationError) as e:
+		return _error_response(e)
+	return JsonResponse({"message": "PlayList updated successfully", "playlist": playlist})
 
 
+@csrf_exempt
 def delete_playlist_view(request, playlist_id):
 	if request.method != "DELETE":
 		return JsonResponse({"error": "Method not allowed"}, status=405)
-
 	try:
-		playlist = PlayList.objects.get(pk=playlist_id)
-	except PlayList.DoesNotExist:
-		return JsonResponse({"error": "PlayList not found"}, status=404)
-
-	playlist.delete()
+		PlaylistUseCase().delete_playlist(playlist_id)
+	except (NotFound, ValidationError) as e:
+		return _error_response(e)
 	return JsonResponse({"message": "PlayList deleted successfully"})
 
 
-# ── Creator ───────────────────────────────────────────────────────────────────
+# Creator
 
 def creator_list_view(request):
-	creators = Creator.objects.all()
-	return JsonResponse({"creator_list": list(creators.values())})
+	return JsonResponse({"creator_list": CreatorUseCase().list_creators()})
 
 
+@csrf_exempt
 def create_creator_view(request):
 	if request.method != "POST":
 		return JsonResponse({"error": "Method not allowed"}, status=405)
-
 	payload, err = _parse_json(request)
 	if err:
 		return err
-
-	if not payload.get("email"):
-		return JsonResponse({"error": "Missing required fields", "fields": ["email"]}, status=400)
-
-	if Creator.objects.filter(email=payload["email"]).exists():
-		return JsonResponse({"error": "Email already exists"}, status=400)
-
-	creator = Creator.objects.create(email=payload["email"])
-	return JsonResponse({"message": "Creator created successfully", "creator": _creator_dict(creator)}, status=201)
+	try:
+		creator = CreatorUseCase().create_creator(payload)
+	except (NotFound, ValidationError) as e:
+		return _error_response(e)
+	return JsonResponse({"message": "Creator created successfully", "creator": creator}, status=201)
 
 
 def creator_detail_view(request, creator_id):
 	try:
-		creator = Creator.objects.get(pk=creator_id)
-	except Creator.DoesNotExist:
-		return JsonResponse({"error": "Creator not found"}, status=404)
+		creator = CreatorUseCase().get_creator(creator_id)
+	except (NotFound, ValidationError) as e:
+		return _error_response(e)
+	return JsonResponse({"creator": creator})
 
-	return JsonResponse({"creator": _creator_dict(creator)})
 
-
+@csrf_exempt
 def update_creator_view(request, creator_id):
 	if request.method != "PUT":
 		return JsonResponse({"error": "Method not allowed"}, status=405)
-
-	try:
-		creator = Creator.objects.get(pk=creator_id)
-	except Creator.DoesNotExist:
-		return JsonResponse({"error": "Creator not found"}, status=404)
-
 	payload, err = _parse_json(request)
 	if err:
 		return err
-
-	if not payload.get("email"):
-		return JsonResponse({"error": "Missing required fields", "fields": ["email"]}, status=400)
-
-	if Creator.objects.filter(email=payload["email"]).exclude(pk=creator_id).exists():
-		return JsonResponse({"error": "Email already exists"}, status=400)
-
-	creator.email = payload["email"]
-	creator.save()
-	return JsonResponse({"message": "Creator updated successfully", "creator": _creator_dict(creator)})
+	try:
+		creator = CreatorUseCase().update_creator(creator_id, payload)
+	except (NotFound, ValidationError) as e:
+		return _error_response(e)
+	return JsonResponse({"message": "Creator updated successfully", "creator": creator})
 
 
+@csrf_exempt
 def delete_creator_view(request, creator_id):
 	if request.method != "DELETE":
 		return JsonResponse({"error": "Method not allowed"}, status=405)
-
 	try:
-		creator = Creator.objects.get(pk=creator_id)
-	except Creator.DoesNotExist:
-		return JsonResponse({"error": "Creator not found"}, status=404)
-
-	creator.delete()
+		CreatorUseCase().delete_creator(creator_id)
+	except (NotFound, ValidationError) as e:
+		return _error_response(e)
 	return JsonResponse({"message": "Creator deleted successfully"})

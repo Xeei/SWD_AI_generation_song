@@ -2,10 +2,6 @@ from django.urls import path
 from . import views
 
 urlpatterns = [
-    # Docs
-    path('schema/', views.schema_view, name='schema'),
-    path('docs/', views.swagger_ui_view, name='swagger_ui'),
-
     # Song
     path('songs/', views.song_list_view, name='song_list'),
     path('songs/create/', views.create_song_view, name='create_song'),
