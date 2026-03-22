@@ -29,6 +29,11 @@ venv\\Scripts\\activate
 pip install -r requirements.txt
 ```
 
+### 4. Make migration
+```bash
+python manage.py migrate
+```
+
 ## How to run
 After activate your python3 vitual environment excute this command
 ```bash
