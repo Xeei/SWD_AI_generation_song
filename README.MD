@@ -31,7 +31,7 @@ source .venv/bin/activate
 **window (cmd):**
 
 ```bash
-venv\\Scripts\\activate
+.venv\\Scripts\\activate
 ```
 
 ### 3. Install python environment
