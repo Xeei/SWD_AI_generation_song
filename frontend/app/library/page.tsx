@@ -33,7 +33,14 @@ export default function LibraryPage() {
     }, [songs, searchQuery, statusFilter, favoritesOnly])
 
     function handleFavorite(song: SongResponse) {
-        updateSong({ songId: song.song_id, data: { is_favorite: !song.is_favorite } })
+        updateSong(
+            { songId: song.song_id, data: { is_favorite: !song.is_favorite } },
+            {
+                onSuccess: (updated) => {
+                    if (currentSong?.song_id === updated.song_id) setCurrentSong(updated)
+                },
+            }
+        )
     }
 
     return (
