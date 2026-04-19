@@ -83,7 +83,8 @@ export default function SongList({ songs, currentSongId, onPlay, onFavorite }: P
                             .join(' ')}
                     >
                         <button
-                            onClick={() => isPlayable && onPlay(song)}
+                            type="button"
+                            onClick={() => onPlay(song)}
                             disabled={!isPlayable}
                             className="flex items-center justify-center text-primary disabled:cursor-not-allowed disabled:text-muted-foreground"
                             aria-label={isPlaying ? 'Pause' : 'Play'}
@@ -113,6 +114,7 @@ export default function SongList({ songs, currentSongId, onPlay, onFavorite }: P
                         </span>
 
                         <button
+                            type="button"
                             onClick={() => onFavorite(song)}
                             className={
                                 song.is_favorite
