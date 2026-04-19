@@ -66,8 +66,10 @@ export default function AudioPlayer({ song, onClose }: Props) {
         <div className="fixed bottom-0 left-0 right-0 z-50 flex items-center gap-3 border-t border-border bg-card px-4 py-3 shadow-lg">
             <audio
                 ref={audioRef}
-                onTimeUpdate={() => setCurrentTime(audioRef.current?.currentTime ?? 0)}
-                onLoadedMetadata={() => setDuration(audioRef.current?.duration ?? 0)}
+                onTimeUpdate={(e) => setCurrentTime(e.currentTarget.currentTime)}
+                onLoadedMetadata={(e) => setDuration(e.currentTarget.duration)}
+                onPlay={() => setIsPlaying(true)}
+                onPause={() => setIsPlaying(false)}
                 onEnded={() => setIsPlaying(false)}
             />
 
