@@ -207,3 +207,40 @@ Base URL: `http://localhost:8000/api`
 	"fields": ["title", "occasion"]
 }
 ```
+
+# Use Case
+
+## Song Generation
+
+```mermaid
+sequenceDiagram
+    actor C as Client
+    participant GC as GeneratorController
+    participant GFTP as GenerateFormTemplate
+    participant S as Song
+    participant SN as Suno API
+    participant LS as Local Storage
+
+    C->>GC: Request for Generation Page
+    GC->>GFTP: Get Template
+    GFTP-->>GC: HTML
+    GC-->>C: Return Generation Page
+    C->>GC: Submit Generation Request
+    GC->>S: Save Song (status: PENDING)
+    S-->>GC: Confirmation
+    GC->>SN: Call Suno API
+    SN-->>GC: Accepted (wait for callback)
+    GC-->>C: Generation In Progress
+
+    SN--)GC: Callback Received
+
+    alt Callback Success
+        GC->>S: Update Song (status: SUCCESS)
+        GC->>LS: Download song from callback URL
+        LS-->>GC: File saved
+        GC-->>C: Song Ready
+    else Callback Failure
+        GC->>S: Update Song (status: FAILED)
+        GC-->>C: Generation Failed
+    end
+```

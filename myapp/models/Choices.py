@@ -17,8 +17,5 @@ class MoodTone(models.IntegerChoices):
 
 
 class VoiceType(models.IntegerChoices):
-	MALE_POP = 1, 'Male Pop'
-	FEMALE_POP = 2, 'Female Pop'
-	MALE_ROCK = 3, 'Male Rock'
-	FEMALE_ROCK = 4, 'Female Rock'
-	INSTRUMENTAL_ONLY = 5, 'Instrumental Only'
+	MALE = 1, 'Male'
+	FEMALE = 2, 'Female'

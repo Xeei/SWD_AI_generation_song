@@ -2,8 +2,13 @@ from django.urls import path
 from . import views
 
 urlpatterns = [
+    # Enums
+    path('enums/', views.enum_choices_view, name='enum_choices'),
+
     # Song
     path('songs/', views.song_list_view, name='song_list'),
+    path('songs/generate/', views.generate_song_view, name='generate_song'),
+    path('songs/callback/', views.suno_callback_view, name='suno_callback'),
     path('songs/create/', views.create_song_view, name='create_song'),
     path('songs/<uuid:song_id>/', views.song_detail_view, name='song_detail'),
     path('songs/<uuid:song_id>/update/', views.update_song_view, name='update_song'),
