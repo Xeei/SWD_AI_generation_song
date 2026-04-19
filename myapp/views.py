@@ -1,16 +1,16 @@
 import json
+import os
 import requests
 
-from django.conf import settings
 from django.http import JsonResponse
 from django.views.decorators.csrf import csrf_exempt
 
 from .models import Song, PlayList, Creator, VoiceType
 from .models.Choices import GenerationStatus, MoodTone
 
-SUNO_API_TOKEN = getattr(settings, "SUNO_API_TOKEN", "0862e172f8b0753af6aed523d95cc47b")
-SUNO_API_BASE_URL = getattr(settings, "SUNO_API_BASE_URL", "https://api.sunoapi.org")
-CALLBACK_BASE_URL = getattr(settings, "CALLBACK_BASE_URL", "http://localhost:8000")
+SUNO_API_TOKEN = os.environ.get("SUNO_API_TOKEN", "")
+SUNO_API_BASE_URL = os.environ.get("SUNO_API_BASE_URL", "https://api.sunoapi.org")
+CALLBACK_BASE_URL = os.environ.get("CALLBACK_BASE_URL", "http://localhost:8000")
 
 MOOD_TONE_STYLE = {
     MoodTone.HAPPY: "Happy, uplifting",
@@ -156,20 +156,21 @@ class SongUseCase:
     def handle_suno_callback(self, payload):
         code = payload.get("code")
         inner = payload.get("data", {})
-        task_id = inner.get("task_id")
-        callback_type = inner.get("callbackType")
+        task_id = inner.get("taskId")
+        status = inner.get("status")
 
         try:
             song = Song.objects.get(suno_task_id=task_id)
         except Song.DoesNotExist:
             raise NotFound("Song not found for task_id")
 
-        if code == 200 and callback_type == "complete":
-            songs_data = inner.get("data") or []
-            if songs_data:
-                first = songs_data[0]
-                song.audio_file_url = first.get("audio_url", "")
-                song.share_url = first.get("source_audio_url", "")
+        if code == 200 and status == "SUCCESS":
+            suno_data = inner.get("response", {}).get("sunoData") or []
+            if suno_data:
+                first = suno_data[0]
+                song.audio_file_url = first.get("audioUrl", "")
+                song.share_url = first.get("sourceAudioUrl", "")
+                song.duration = int(first.get("duration", 0))
             song.generation_status = GenerationStatus.GENERATED
         else:
             song.generation_status = GenerationStatus.ERROR
