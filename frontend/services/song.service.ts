@@ -94,3 +94,17 @@ export const useUpdateSong = () =>
         onSuccess: () =>
             queryClient.invalidateQueries({ queryKey: songKeys.all }),
     })
+
+export type RegeneratePayload = Pick<SongResponse, 'title' | 'occasion' | 'mood_tone' | 'voice_type' | 'duration'>
+
+export const regenerateSong = (songId: string, data: RegeneratePayload): Promise<SongResponse> =>
+    instance
+        .post<{ song: SongResponse }>(`/songs/${songId}/regenerate/`, data)
+        .then((res) => res.data.song)
+
+export const useRegenerateSong = () =>
+    useMutation({
+        mutationFn: ({ songId, data }: { songId: string; data: RegeneratePayload }) =>
+            regenerateSong(songId, data),
+        onSuccess: () => queryClient.invalidateQueries({ queryKey: songKeys.all }),
+    })
