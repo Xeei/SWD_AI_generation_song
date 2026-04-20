@@ -186,31 +186,37 @@ class SongUseCase:
         try:
             mood_tone_int = int(data["mood_tone"])
             voice_type_int = int(data["voice_type"])
-            song.title = str(data["title"])
-            song.occasion = str(data["occasion"])
-            song.mood_tone = mood_tone_int
-            song.voice_type = voice_type_int
-            song.duration = int(data["duration"])
-            song.generation_status = GenerationStatus.GENERATING
-            song.audio_file_url = ""
-            song.share_url = ""
+            title = str(data["title"])
+            occasion = str(data["occasion"])
+            duration = int(data["duration"])
         except (TypeError, ValueError):
             raise ValidationError("Invalid field type")
 
         vocal_gender = 'f' if voice_type_int == VoiceType.FEMALE else 'm'
         style = MOOD_TONE_STYLE.get(mood_tone_int, "Pop")
         callback_url = f"{CALLBACK_BASE_URL}/api/songs/callback/"
-        prompt = _build_prompt(song.title, song.occasion, mood_tone_int)
+        prompt = _build_prompt(title, occasion, mood_tone_int)
 
         try:
-            task_id = SunoService.generate(song.title, style, callback_url, vocal_gender, prompt=prompt)
-            song.suno_task_id = task_id
+            task_id = SunoService.generate(title, style, callback_url, vocal_gender, prompt=prompt)
         except RuntimeError:
             song.generation_status = GenerationStatus.ERROR
-            song.save()
+            song.save(update_fields=["generation_status"])
             raise
 
-        song.save()
+        song.title = title
+        song.occasion = occasion
+        song.mood_tone = mood_tone_int
+        song.voice_type = voice_type_int
+        song.duration = duration
+        song.generation_status = GenerationStatus.GENERATING
+        song.audio_file_url = ""
+        song.share_url = ""
+        song.suno_task_id = task_id
+        song.save(update_fields=[
+            "title", "occasion", "mood_tone", "voice_type", "duration",
+            "generation_status", "audio_file_url", "share_url", "suno_task_id",
+        ])
         return self._to_dict(song)
 
     def _to_dict(self, s):
