@@ -11,6 +11,7 @@ from .models.Choices import GenerationStatus, MoodTone
 SUNO_API_TOKEN = os.environ.get("SUNO_API_TOKEN", "")
 SUNO_API_BASE_URL = os.environ.get("SUNO_API_BASE_URL", "https://api.sunoapi.org")
 CALLBACK_BASE_URL = os.environ.get("CALLBACK_BASE_URL", "http://localhost:8000")
+GEMINI_API_KEY = os.environ.get("GEMINI_API_KEY", "")
 
 MOOD_TONE_STYLE = {
     MoodTone.HAPPY: "Happy, uplifting",
@@ -22,7 +23,7 @@ MOOD_TONE_STYLE = {
 }
 
 
-def _build_prompt(title: str, occasion: str, mood_tone: int) -> str:
+def _build_prompt_fallback(title: str, occasion: str, mood_tone: int) -> str:
     mood = MOOD_TONE_STYLE.get(mood_tone, "")
     return (
         f"[verse]\n"
@@ -49,6 +50,42 @@ def _build_prompt(title: str, occasion: str, mood_tone: int) -> str:
         f"Here's to you on this special day.\n"
         f"[end]"
     )
+
+
+def _build_prompt(title: str, occasion: str, mood_tone: int) -> str:
+    mood = MOOD_TONE_STYLE.get(mood_tone, "")
+    if not GEMINI_API_KEY:
+        return _build_prompt_fallback(title, occasion, mood_tone)
+
+    system_instruction = (
+        "You are a professional songwriter. Generate song lyrics using ONLY these structural tags: "
+        "[verse], [chorus], [outro], [end]. "
+        "Output ONLY the lyrics with tags — no explanations, no extra text, no markdown."
+    )
+    user_prompt = (
+        f"Write original song lyrics for a {mood.lower()} song.\n"
+        f"Song title: {title}\n"
+        f"Occasion: {occasion}\n"
+        f"Structure: [verse], [chorus], [verse], [chorus], [outro], [end]\n"
+        f"Each section 4 lines. Make it heartfelt and specific to the occasion."
+    )
+
+    try:
+        url = (
+            f"https://generativelanguage.googleapis.com/v1beta/models/"
+            f"gemini-2.0-flash:generateContent?key={GEMINI_API_KEY}"
+        )
+        payload = {
+            "system_instruction": {"parts": [{"text": system_instruction}]},
+            "contents": [{"parts": [{"text": user_prompt}]}],
+            "generationConfig": {"temperature": 0.9, "maxOutputTokens": 512},
+        }
+        resp = requests.post(url, json=payload, timeout=15)
+        resp.raise_for_status()
+        lyrics = resp.json()["candidates"][0]["content"]["parts"][0]["text"].strip()
+        return lyrics
+    except Exception:
+        return _build_prompt_fallback(title, occasion, mood_tone)
 
 
 # ── Suno Service ──────────────────────────────────────────────────────────────
