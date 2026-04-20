@@ -30,6 +30,7 @@ interface Props {
 
 export default function RegenerateModal({ song, onClose }: Props) {
     const { mutate: regenerate, isPending } = useRegenerateSong()
+    const [error, setError] = useState<string | null>(null)
 
     const [form, setForm] = useState<RegeneratePayload>({
         title: '',
@@ -41,6 +42,7 @@ export default function RegenerateModal({ song, onClose }: Props) {
 
     useEffect(() => {
         if (song) {
+            setError(null)
             setForm({
                 title: song.title,
                 occasion: song.occasion,
@@ -55,7 +57,14 @@ export default function RegenerateModal({ song, onClose }: Props) {
 
     function handleSubmit(e: React.FormEvent) {
         e.preventDefault()
-        regenerate({ songId: song!.song_id, data: form }, { onSuccess: onClose })
+        setError(null)
+        regenerate(
+            { songId: song!.song_id, data: form },
+            {
+                onSuccess: onClose,
+                onError: () => setError('Regeneration failed. Please try again.'),
+            }
+        )
     }
 
     const selectClass = "h-8 w-full rounded-lg border border-input bg-transparent px-2.5 text-sm outline-none focus-visible:border-ring"
@@ -162,6 +171,10 @@ export default function RegenerateModal({ song, onClose }: Props) {
                             </div>
                         </div>
                     </div>
+
+                    {error && (
+                        <p className="mt-4 text-sm text-red-400">{error}</p>
+                    )}
 
                     {/* Footer */}
                     <div className="mt-6 flex justify-end gap-2">
