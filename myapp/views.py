@@ -22,11 +22,40 @@ MOOD_TONE_STYLE = {
 }
 
 
+def _build_prompt(title: str, occasion: str, mood_tone: int) -> str:
+    mood = MOOD_TONE_STYLE.get(mood_tone, "")
+    return (
+        f"[verse]\n"
+        f"A {mood.lower()} song for {occasion}.\n"
+        f"{title}, a special moment to remember.\n"
+        f"Memories that will last forever,\n"
+        f"Celebrating this day together.\n\n"
+        f"[chorus]\n"
+        f"{title}, oh {title},\n"
+        f"This {occasion} means so much.\n"
+        f"Every moment shared with love,\n"
+        f"Touched by your gentle touch.\n\n"
+        f"[verse]\n"
+        f"The laughter and the joy we share,\n"
+        f"Show how much we truly care.\n"
+        f"Through the years and days gone by,\n"
+        f"Our bond will never say goodbye.\n\n"
+        f"[chorus]\n"
+        f"{title}, oh {title},\n"
+        f"This {occasion} means so much.\n"
+        f"Every moment shared with love,\n"
+        f"Touched by your gentle touch.\n\n"
+        f"[outro]\n"
+        f"Here's to you on this special day.\n"
+        f"[end]"
+    )
+
+
 # ── Suno Service ──────────────────────────────────────────────────────────────
 
 class SunoService:
     @staticmethod
-    def generate(title, style, callback_url, vocal_gender) -> str:
+    def generate(title, style, callback_url, vocal_gender, prompt="") -> str:
         url = f"{SUNO_API_BASE_URL}/api/v1/generate"
         payload = {
             "customMode": True,
@@ -36,6 +65,7 @@ class SunoService:
             "style": style,
             "callBackUrl": callback_url,
             "vocalGender": vocal_gender,
+            "prompt": prompt,
         }
         headers = {
             "Authorization": f"Bearer {SUNO_API_TOKEN}",
@@ -102,7 +132,8 @@ class SongUseCase:
         callback_url = f"{CALLBACK_BASE_URL}/api/songs/callback/"
 
         try:
-            task_id = SunoService.generate(song.title, style, callback_url, vocal_gender)
+            prompt = _build_prompt(song.title, song.occasion, mood_tone_int)
+            task_id = SunoService.generate(song.title, style, callback_url, vocal_gender, prompt=prompt)
             song.suno_task_id = task_id
             song.save(update_fields=["suno_task_id"])
         except RuntimeError:
@@ -137,6 +168,50 @@ class SongUseCase:
             Song.objects.get(pk=song_id).delete()
         except Song.DoesNotExist:
             raise NotFound("Song not found")
+
+    def regenerate_song(self, song_id, data):
+        try:
+            song = Song.objects.get(pk=song_id)
+        except Song.DoesNotExist:
+            raise NotFound("Song not found")
+
+        if song.generation_status != GenerationStatus.GENERATED:
+            raise ValidationError("Song is not in GENERATED status")
+
+        required = ["title", "occasion", "mood_tone", "voice_type", "duration"]
+        missing = [f for f in required if data.get(f) in (None, "")]
+        if missing:
+            raise ValidationError("Missing required fields", fields=missing)
+
+        try:
+            mood_tone_int = int(data["mood_tone"])
+            voice_type_int = int(data["voice_type"])
+            song.title = str(data["title"])
+            song.occasion = str(data["occasion"])
+            song.mood_tone = mood_tone_int
+            song.voice_type = voice_type_int
+            song.duration = int(data["duration"])
+            song.generation_status = GenerationStatus.GENERATING
+            song.audio_file_url = ""
+            song.share_url = ""
+        except (TypeError, ValueError):
+            raise ValidationError("Invalid field type")
+
+        vocal_gender = 'f' if voice_type_int == VoiceType.FEMALE else 'm'
+        style = MOOD_TONE_STYLE.get(mood_tone_int, "Pop")
+        callback_url = f"{CALLBACK_BASE_URL}/api/songs/callback/"
+        prompt = _build_prompt(song.title, song.occasion, mood_tone_int)
+
+        try:
+            task_id = SunoService.generate(song.title, style, callback_url, vocal_gender, prompt=prompt)
+            song.suno_task_id = task_id
+        except RuntimeError:
+            song.generation_status = GenerationStatus.ERROR
+            song.save()
+            raise
+
+        song.save()
+        return self._to_dict(song)
 
     def _to_dict(self, s):
         return {
@@ -461,6 +536,22 @@ def generate_song_view(request):
     except RuntimeError as e:
         return JsonResponse({"error": str(e)}, status=502)
     return JsonResponse({"message": "Generation in progress", "song": song}, status=202)
+
+
+@csrf_exempt
+def regenerate_song_view(request, song_id):
+    if request.method != "POST":
+        return JsonResponse({"error": "Method not allowed"}, status=405)
+    payload, err = _parse_json(request)
+    if err:
+        return err
+    try:
+        song = SongUseCase().regenerate_song(song_id, payload)
+    except (NotFound, ValidationError) as e:
+        return _error_response(e)
+    except RuntimeError as e:
+        return JsonResponse({"error": str(e)}, status=502)
+    return JsonResponse({"message": "Regeneration in progress", "song": song}, status=202)
 
 
 @csrf_exempt

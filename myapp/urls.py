@@ -13,6 +13,7 @@ urlpatterns = [
     path('songs/<uuid:song_id>/', views.song_detail_view, name='song_detail'),
     path('songs/<uuid:song_id>/update/', views.update_song_view, name='update_song'),
     path('songs/<uuid:song_id>/delete/', views.delete_song_view, name='delete_song'),
+    path('songs/<uuid:song_id>/regenerate/', views.regenerate_song_view, name='regenerate_song'),
 
     # PlayList
     path('playlists/', views.playlist_list_view, name='playlist_list'),
