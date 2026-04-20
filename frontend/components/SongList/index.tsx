@@ -29,9 +29,10 @@ interface Props {
     currentSongId: string | null
     onPlay: (song: SongResponse) => void
     onFavorite: (song: SongResponse) => void
+    onRegenerate: (song: SongResponse) => void
 }
 
-export default function SongList({ songs, currentSongId, onPlay, onFavorite }: Props) {
+export default function SongList({ songs, currentSongId, onPlay, onFavorite, onRegenerate }: Props) {
     if (songs.length === 0) {
         return (
             <div className="flex min-h-40 items-center justify-center text-sm text-muted-foreground">
@@ -43,12 +44,13 @@ export default function SongList({ songs, currentSongId, onPlay, onFavorite }: P
     return (
         <div className="flex flex-col gap-1">
             {/* Header */}
-            <div className="grid grid-cols-[32px_1fr_100px_60px_90px_32px] gap-3 px-3 py-1 text-xs font-semibold uppercase tracking-wide text-muted-foreground">
+            <div className="grid grid-cols-[32px_1fr_100px_60px_90px_32px_32px] gap-3 px-3 py-1 text-xs font-semibold uppercase tracking-wide text-muted-foreground">
                 <span />
                 <span>Title</span>
                 <span>Mood</span>
                 <span>Duration</span>
                 <span>Status</span>
+                <span />
                 <span />
             </div>
 
@@ -73,7 +75,7 @@ export default function SongList({ songs, currentSongId, onPlay, onFavorite }: P
                     <div
                         key={song.song_id}
                         className={[
-                            'grid grid-cols-[32px_1fr_100px_60px_90px_32px] gap-3 items-center rounded-lg border px-3 py-2 transition-colors',
+                            'grid grid-cols-[32px_1fr_100px_60px_90px_32px_32px] gap-3 items-center rounded-lg border px-3 py-2 transition-colors',
                             isPlaying
                                 ? 'border-primary bg-primary/10'
                                 : 'border-border bg-card',
@@ -124,6 +126,16 @@ export default function SongList({ songs, currentSongId, onPlay, onFavorite }: P
                             aria-label={song.is_favorite ? 'Unfavorite' : 'Favorite'}
                         >
                             {song.is_favorite ? '♥' : '♡'}
+                        </button>
+
+                        <button
+                            type="button"
+                            onClick={() => onRegenerate(song)}
+                            disabled={!isPlayable}
+                            className="flex items-center justify-center text-muted-foreground hover:text-primary disabled:cursor-not-allowed disabled:opacity-30"
+                            aria-label="Regenerate"
+                        >
+                            ↺
                         </button>
                     </div>
                 )

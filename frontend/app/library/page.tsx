@@ -4,6 +4,7 @@ import { useMemo, useState } from 'react'
 import { Input } from '@/components/ui/input'
 import SongList from '@/components/SongList'
 import AudioPlayer from '@/components/AudioPlayer'
+import RegenerateModal from '@/components/RegenerateModal'
 import { Skeleton } from '@/components/ui/skeleton'
 import {
     GenerationStatus,
@@ -20,6 +21,7 @@ export default function LibraryPage() {
     const [statusFilter, setStatusFilter] = useState<number | ''>('')
     const [favoritesOnly, setFavoritesOnly] = useState(false)
     const [currentSong, setCurrentSong] = useState<SongResponse | null>(null)
+    const [regenerateSong, setRegenerateSong] = useState<SongResponse | null>(null)
 
     const filteredSongs = useMemo(() => {
         if (!songs) return []
@@ -94,9 +96,11 @@ export default function LibraryPage() {
                     currentSongId={currentSong?.song_id ?? null}
                     onPlay={setCurrentSong}
                     onFavorite={handleFavorite}
+                    onRegenerate={setRegenerateSong}
                 />
             )}
 
+            <RegenerateModal song={regenerateSong} onClose={() => setRegenerateSong(null)} />
             <AudioPlayer song={currentSong} onClose={() => setCurrentSong(null)} />
         </div>
     )
