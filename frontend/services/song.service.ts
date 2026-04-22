@@ -24,6 +24,7 @@ export interface SongResponse {
     share_url: string
     is_favorite: boolean
     time_stamp: string
+    creator_id: string | null
 }
 
 export interface GenerateSongRequest {
@@ -32,6 +33,7 @@ export interface GenerateSongRequest {
     mood_tone: number
     voice_type: number
     duration: number
+    creator_id: string
 }
 
 export const songKeys = {
@@ -95,7 +97,7 @@ export const useUpdateSong = () =>
             queryClient.invalidateQueries({ queryKey: songKeys.all }),
     })
 
-export type RegeneratePayload = Pick<SongResponse, 'title' | 'occasion' | 'mood_tone' | 'voice_type' | 'duration'>
+export type RegeneratePayload = Pick<SongResponse, 'title' | 'occasion' | 'mood_tone' | 'voice_type' | 'duration'> & { creator_id: string }
 
 export const regenerateSong = (songId: string, data: RegeneratePayload): Promise<SongResponse> =>
     instance

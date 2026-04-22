@@ -5,6 +5,9 @@ urlpatterns = [
     # Enums
     path('enums/', views.enum_choices_view, name='enum_choices'),
 
+    # Mock audio (dev only)
+    path('mock-audio/<str:filename>', views.mock_audio_view, name='mock_audio'),
+
     # Song
     path('songs/', views.song_list_view, name='song_list'),
     path('songs/generate/', views.generate_song_view, name='generate_song'),
@@ -24,6 +27,7 @@ urlpatterns = [
 
     # Creator
     path('creators/', views.creator_list_view, name='creator_list'),
+    path('creators/sync/', views.sync_creator_view, name='sync_creator'),
     path('creators/create/', views.create_creator_view, name='create_creator'),
     path('creators/<uuid:creator_id>/', views.creator_detail_view, name='creator_detail'),
     path('creators/<uuid:creator_id>/update/', views.update_creator_view, name='update_creator'),

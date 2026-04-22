@@ -2,6 +2,7 @@
 
 import { useEffect, useState } from 'react'
 import { SongResponse, RegeneratePayload, useRegenerateSong } from '@/services/song.service'
+import { useCreatorId } from '@/services/creator.service'
 
 const MOOD_OPTIONS = [
     { value: 1, label: 'Happy' },
@@ -30,6 +31,7 @@ interface Props {
 
 export default function RegenerateModal({ song, onClose }: Props) {
     const { mutate: regenerate, isPending } = useRegenerateSong()
+    const creatorId = useCreatorId()
     const [error, setError] = useState<string | null>(null)
 
     const [form, setForm] = useState<RegeneratePayload>({
@@ -57,9 +59,10 @@ export default function RegenerateModal({ song, onClose }: Props) {
 
     function handleSubmit(e: React.FormEvent) {
         e.preventDefault()
+        if (!creatorId) return
         setError(null)
         regenerate(
-            { songId: song!.song_id, data: form },
+            { songId: song!.song_id, data: { ...form, creator_id: creatorId } },
             {
                 onSuccess: onClose,
                 onError: () => setError('Regeneration failed. Please try again.'),

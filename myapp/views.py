@@ -2,16 +2,18 @@ import json
 import os
 import requests
 
-from django.http import JsonResponse
+from django.conf import settings
+from django.http import FileResponse, Http404, JsonResponse
 from django.views.decorators.csrf import csrf_exempt
 
 from .models import Song, PlayList, Creator, VoiceType
 from .models.Choices import GenerationStatus, MoodTone
+from .strategies import get_strategy
 
-SUNO_API_TOKEN = os.environ.get("SUNO_API_TOKEN", "")
-SUNO_API_BASE_URL = os.environ.get("SUNO_API_BASE_URL", "https://api.sunoapi.org")
 CALLBACK_BASE_URL = os.environ.get("CALLBACK_BASE_URL", "http://localhost:8000")
 GEMINI_API_KEY = os.environ.get("GEMINI_API_KEY", "")
+
+_strategy = get_strategy()
 
 MOOD_TONE_STYLE = {
     MoodTone.HAPPY: "Happy, uplifting",
@@ -51,7 +53,6 @@ def _build_prompt_fallback(title: str, occasion: str, mood_tone: int) -> str:
         f"[end]"
     )
 
-
 def _build_prompt(title: str, occasion: str, mood_tone: int) -> str:
     mood = MOOD_TONE_STYLE.get(mood_tone, "")
     if not GEMINI_API_KEY:
@@ -88,38 +89,6 @@ def _build_prompt(title: str, occasion: str, mood_tone: int) -> str:
         return _build_prompt_fallback(title, occasion, mood_tone)
 
 
-# ── Suno Service ──────────────────────────────────────────────────────────────
-
-class SunoService:
-    @staticmethod
-    def generate(title, style, callback_url, vocal_gender, prompt="") -> str:
-        url = f"{SUNO_API_BASE_URL}/api/v1/generate"
-        payload = {
-            "customMode": True,
-            "instrumental": False,
-            "model": "V4",
-            "title": title,
-            "style": style,
-            "callBackUrl": callback_url,
-            "vocalGender": vocal_gender,
-            "prompt": prompt,
-        }
-        headers = {
-            "Authorization": f"Bearer {SUNO_API_TOKEN}",
-            "Content-Type": "application/json",
-        }
-        try:
-            resp = requests.post(url, json=payload, headers=headers, timeout=15)
-            resp.raise_for_status()
-            resp_json = resp.json()
-            task_id = resp_json['data']['taskId']
-            return task_id
-        except requests.exceptions.HTTPError as e:
-            raise RuntimeError(f"Suno API error {e.response.status_code}: {e.response.text}")
-        except requests.exceptions.ConnectionError as e:
-            raise RuntimeError(f"Suno API unreachable: {e}")
-
-
 # ── Exceptions ────────────────────────────────────────────────────────────────
 
 class NotFound(Exception):
@@ -145,10 +114,14 @@ class SongUseCase:
             raise NotFound("Song not found")
 
     def create_song(self, data):
-        required = ["title", "occasion", "mood_tone", "voice_type", "duration"]
+        required = ["title", "occasion", "mood_tone", "voice_type", "duration", "creator_id"]
         missing = [f for f in required if data.get(f) in (None, "")]
         if missing:
             raise ValidationError("Missing required fields", fields=missing)
+        try:
+            Creator.objects.get(pk=data["creator_id"])
+        except Creator.DoesNotExist:
+            raise ValidationError("Creator not found", fields=["creator_id"])
         try:
             voice_type_int = int(data["voice_type"])
             mood_tone_int = int(data["mood_tone"])
@@ -160,6 +133,7 @@ class SongUseCase:
                 voice_type=voice_type_int,
                 duration=int(data["duration"]),
                 is_favorite=bool(data.get("is_favorite", False)),
+                creator_id=data["creator_id"],
             )
         except (TypeError, ValueError):
             raise ValidationError("Invalid field type")
@@ -170,7 +144,7 @@ class SongUseCase:
 
         try:
             prompt = _build_prompt(song.title, song.occasion, mood_tone_int)
-            task_id = SunoService.generate(song.title, style, callback_url, vocal_gender, prompt=prompt)
+            task_id = _strategy.generate(song.title, style, callback_url, vocal_gender, prompt=prompt)
             song.suno_task_id = task_id
             song.save(update_fields=["suno_task_id"])
         except RuntimeError:
@@ -215,10 +189,14 @@ class SongUseCase:
         if song.generation_status != GenerationStatus.GENERATED:
             raise ValidationError("Song is not in GENERATED status")
 
-        required = ["title", "occasion", "mood_tone", "voice_type", "duration"]
+        required = ["title", "occasion", "mood_tone", "voice_type", "duration", "creator_id"]
         missing = [f for f in required if data.get(f) in (None, "")]
         if missing:
             raise ValidationError("Missing required fields", fields=missing)
+        try:
+            Creator.objects.get(pk=data["creator_id"])
+        except Creator.DoesNotExist:
+            raise ValidationError("Creator not found", fields=["creator_id"])
 
         try:
             mood_tone_int = int(data["mood_tone"])
@@ -226,6 +204,7 @@ class SongUseCase:
             title = str(data["title"])
             occasion = str(data["occasion"])
             duration = int(data["duration"])
+            creator_id = data["creator_id"]
         except (TypeError, ValueError):
             raise ValidationError("Invalid field type")
 
@@ -235,7 +214,7 @@ class SongUseCase:
         prompt = _build_prompt(title, occasion, mood_tone_int)
 
         try:
-            task_id = SunoService.generate(title, style, callback_url, vocal_gender, prompt=prompt)
+            task_id = _strategy.generate(title, style, callback_url, vocal_gender, prompt=prompt)
         except RuntimeError:
             song.generation_status = GenerationStatus.ERROR
             song.save(update_fields=["generation_status"])
@@ -246,12 +225,13 @@ class SongUseCase:
         song.mood_tone = mood_tone_int
         song.voice_type = voice_type_int
         song.duration = duration
+        song.creator_id = creator_id
         song.generation_status = GenerationStatus.GENERATING
         song.audio_file_url = ""
         song.share_url = ""
         song.suno_task_id = task_id
         song.save(update_fields=[
-            "title", "occasion", "mood_tone", "voice_type", "duration",
+            "title", "occasion", "mood_tone", "voice_type", "duration", "creator_id",
             "generation_status", "audio_file_url", "share_url", "suno_task_id",
         ])
         return self._to_dict(song)
@@ -269,6 +249,7 @@ class SongUseCase:
             "share_url": s.share_url,
             "is_favorite": s.is_favorite,
             "time_stamp": s.time_stamp.isoformat(),
+            "creator_id": str(s.creator_id) if s.creator_id else None,
         }
 
     def handle_suno_callback(self, payload):
@@ -373,11 +354,55 @@ class CreatorUseCase:
         except Creator.DoesNotExist:
             raise NotFound("Creator not found")
 
+    def sync_creator(self, email):
+        if not email:
+            raise ValidationError("Missing required fields", fields=["email"])
+        creator, _ = Creator.objects.get_or_create(email=email)
+        return self._to_dict(creator)
+
     def _to_dict(self, c):
         return {
             "creator_id": str(c.creator_id),
             "email": c.email,
         }
+
+
+# ── Background poll ───────────────────────────────────────────────────────────
+
+_SUNO_FAILED_STATUSES = {
+    "CREATE_TASK_FAILED",
+    "GENERATE_AUDIO_FAILED",
+    "CALLBACK_EXCEPTION",
+    "SENSITIVE_WORD_ERROR",
+}
+
+
+def check_generating_songs():
+    songs = Song.objects.filter(
+        generation_status=GenerationStatus.GENERATING,
+    ).exclude(suno_task_id="")
+
+    for song in songs:
+        try:
+            result = _strategy.check_task(song.suno_task_id)
+            data = result.get("data", {})
+            status = data.get("status")
+
+            if status == "SUCCESS":
+                suno_data = data.get("response", {}).get("sunoData") or []
+                if suno_data:
+                    first = suno_data[0]
+                    song.audio_file_url = first.get("audioUrl", "")
+                    song.share_url = first.get("sourceAudioUrl", "")
+                    song.duration = int(first.get("duration", song.duration))
+                song.generation_status = GenerationStatus.GENERATED
+                song.save(update_fields=["audio_file_url", "share_url", "duration", "generation_status"])
+            elif status in _SUNO_FAILED_STATUSES:
+                song.generation_status = GenerationStatus.ERROR
+                song.save(update_fields=["generation_status"])
+            # PENDING / TEXT_SUCCESS / FIRST_SUCCESS → still in progress, do nothing
+        except Exception:
+            pass
 
 
 # ── Helpers ───────────────────────────────────────────────────────────────────
@@ -555,6 +580,32 @@ def delete_creator_view(request, creator_id):
     except (NotFound, ValidationError) as e:
         return _error_response(e)
     return JsonResponse({"message": "Creator deleted successfully"})
+
+
+@csrf_exempt
+def sync_creator_view(request):
+    if request.method != "POST":
+        return JsonResponse({"error": "Method not allowed"}, status=405)
+    payload, err = _parse_json(request)
+    if err:
+        return err
+    try:
+        creator = CreatorUseCase().sync_creator(payload.get("email", ""))
+    except (NotFound, ValidationError) as e:
+        return _error_response(e)
+    return JsonResponse({"creator": creator})
+
+
+def mock_audio_view(_request, filename):
+    if not filename.endswith('.mp3'):
+        raise Http404
+    path = os.path.join(
+        settings.BASE_DIR, 'myapp', 'static', 'myapp', 'mock_audio', filename
+    )
+    if not os.path.exists(path):
+        raise Http404
+    return FileResponse(open(path, 'rb'), content_type='audio/mpeg')
+
 
 @csrf_exempt
 def enum_choices_view(request):

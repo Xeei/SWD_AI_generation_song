@@ -8,6 +8,7 @@ import { Label, Select, Slider } from "radix-ui"
 import { Input } from "@/components/ui/input"
 import { useEnumChoices } from "@/services/enum.service"
 import { useGenerateSong, useSongById, GenerationStatus } from "@/services/song.service"
+import { useCreatorId } from "@/services/creator.service"
 
 const schema = z.object({
     title: z
@@ -39,6 +40,7 @@ export default function GenerationPage() {
         },
     })
 
+    const creatorId = useCreatorId()
     const { data: enums } = useEnumChoices()
     const { mutate: generate, isPending, error: generateError } = useGenerateSong()
     const { data: song } = useSongById(songId)
@@ -46,6 +48,7 @@ export default function GenerationPage() {
     const duration = watch("duration")
 
     function onSubmit(data: FormValues) {
+        if (!creatorId) return
         generate(
             {
                 title: data.title,
@@ -53,6 +56,7 @@ export default function GenerationPage() {
                 mood_tone: Number(data.moodTone),
                 voice_type: Number(data.voiceType),
                 duration: data.duration,
+                creator_id: creatorId,
             },
             {
                 onSuccess: (created) => setSongId(created.song_id),
