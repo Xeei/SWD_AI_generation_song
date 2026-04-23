@@ -1,58 +1,151 @@
-# Welcome to AI Generation Song Web Application
+# AI Generation Song Web Application
 
-## Prerequisite
+AI-powered song generation app. Describe an occasion, pick a mood and voice — get a unique song in minutes.
 
-- [Python 3.14](https://www.python.org/downloads/release/python-3143/)
+---
 
-## Installation
+## Quick Start with Docker (recommended)
 
-### 1. Set up python vitual enviroment
+### Prerequisites
 
-**macos/ubuntu:**
+- [Docker Desktop](https://www.docker.com/products/docker-desktop/) installed and running
+
+### 1. Clone the repository
 
 ```bash
+git clone <repo-url>
+cd SWD_AI_generation_song
+```
+
+### 2. Create environment files
+
+**Backend** — create `.env` in the project root:
+
+```bash
+cp .env.example .env   # or create manually (see below)
+```
+
+`.env` variables:
+
+```env
+# AI generation strategy: "mock" (no API key needed) or "suno"
+GENERATOR_STRATEGY=mock
+
+# Required only when GENERATOR_STRATEGY=suno
+SUNO_API_TOKEN=your_suno_api_token
+SUNO_API_BASE_URL=https://api.sunoapi.org
+CALLBACK_BASE_URL=http://localhost:8000
+
+# Required only when GENERATOR_STRATEGY=gemini (lyrics generation)
+GEMINI_API_KEY=your_gemini_api_key
+```
+
+**Frontend** — create `frontend/.env.local`:
+
+```bash
+cp frontend/.env.local.example frontend/.env.local   # or create manually
+```
+
+`frontend/.env.local` variables:
+
+```env
+NEXT_PUBLIC_API_BASE_URL=http://localhost:8000/api
+
+# next-auth v5 — Google OAuth
+AUTH_SECRET=any_random_string_at_least_32_chars
+AUTH_GOOGLE_ID=your_google_client_id
+AUTH_GOOGLE_SECRET=your_google_client_secret
+```
+
+> **Getting Google OAuth credentials:**
+> 1. Go to [Google Cloud Console](https://console.cloud.google.com/) → APIs & Services → Credentials
+> 2. Create OAuth 2.0 Client ID (Web application)
+> 3. Add `http://localhost:3000/api/auth/callback/google` to Authorized redirect URIs
+> 4. Copy Client ID and Client Secret into `frontend/.env.local`
+
+### 3. Build and run
+
+```bash
+docker compose up --build
+```
+
+First build takes ~3–5 minutes (installs Python + Node deps and builds Next.js).
+
+### 4. Open the app
+
+| Service  | URL                       |
+| -------- | ------------------------- |
+| Frontend | http://localhost:3000     |
+| Backend  | http://localhost:8000/api |
+
+### Stopping
+
+```bash
+docker compose down
+```
+
+### Rebuilding after dependency changes
+
+```bash
+docker compose up --build
+```
+
+---
+
+## Manual Setup (development)
+
+### Prerequisites
+
+- [Python 3.12+](https://www.python.org/downloads/)
+- [Node.js 22+](https://nodejs.org/)
+
+### 1. Backend
+
+```bash
+# Create and activate virtual environment
 python3 -m venv .venv
-```
+source .venv/bin/activate        # macOS / Linux
+# .venv\Scripts\activate         # Windows
 
-**window (cmd):**
-
-```bash
-python -m venv .venv
-```
-
-### 2. Active venv
-
-**macos/ubuntu:**
-
-```bash
-source .venv/bin/activate
-```
-
-**window (cmd):**
-
-```bash
-.venv\\Scripts\\activate
-```
-
-### 3. Install python environment
-
-```bash
+# Install dependencies
 pip install -r requirements.txt
-```
 
-### 4. Make migration
+# Create .env (see variables above)
+cp .env.example .env
 
-```bash
+# Run migrations
 python manage.py migrate
 ```
 
-## How to run
-
-After activate your python3 vitual environment excute this command
+### 2. Frontend
 
 ```bash
-python manage.py runserver
+cd frontend
+npm install
+
+# Create frontend/.env.local (see variables above)
 ```
+
+### 3. Run both services
+
+```bash
+# From project root — starts frontend (port 3000) + backend (port 8000)
+bash start-dev.sh
+```
+
+Or run separately:
+
+```bash
+# Terminal 1 — backend
+source .venv/bin/activate
+python manage.py runserver 0.0.0.0:8000
+
+# Terminal 2 — frontend
+cd frontend
+npm run dev
+```
+
+---
 
 ## Documentation
 
@@ -68,126 +161,40 @@ Base URL: `http://localhost:8000/api`
 
 #### Song
 
-| Operation      | Method | URL                            |
-| -------------- | ------ | ------------------------------ |
-| List all songs | GET    | `/api/songs/`                  |
-| Get a song     | GET    | `/api/songs/{song_id}/`        |
-| Create a song  | POST   | `/api/songs/create/`           |
-| Update a song  | PUT    | `/api/songs/{song_id}/update/` |
-| Delete a song  | DELETE | `/api/songs/{song_id}/delete/` |
-
-**Create / Update request body:**
-
-```json
-{
-	"title": "string",
-	"occasion": "string",
-	"mood_tone": 1,
-	"voice_type": 1,
-	"lyrics_content": "string",
-	"duration": 180,
-	"audio_file_url": "string",
-	"share_url": "string",
-	"generation_status": 0,
-	"is_favorite": false
-}
-```
-
-> `title`, `occasion`, `mood_tone`, `voice_type`, `lyrics_content`, `duration`, `audio_file_url`, `share_url` are **required** for create.
-
-**List response:**
-
-```json
-{
-	"song_list": [
-		{
-			"song_id": "uuid",
-			"title": "string",
-			"occasion": "string",
-			"generation_status": 0,
-			"mood_tone": 1,
-			"voice_type": 1,
-			"lyrics_content": "string",
-			"duration": 180,
-			"audio_file_url": "string",
-			"share_url": "string",
-			"is_favorite": false,
-			"time_stamp": "2026-01-01T00:00:00"
-		}
-	]
-}
-```
+| Operation         | Method | URL                                  |
+| ----------------- | ------ | ------------------------------------ |
+| List songs        | GET    | `/api/songs/`                        |
+| Get a song        | GET    | `/api/songs/{song_id}/`              |
+| Generate a song   | POST   | `/api/songs/generate/`               |
+| Update a song     | PUT    | `/api/songs/{song_id}/update/`       |
+| Delete a song     | DELETE | `/api/songs/{song_id}/delete/`       |
+| Regenerate a song | POST   | `/api/songs/{song_id}/regenerate/`   |
 
 ---
 
 #### PlayList
 
-| Operation          | Method | URL                                    |
-| ------------------ | ------ | -------------------------------------- |
-| List all playlists | GET    | `/api/playlists/`                      |
-| Get a playlist     | GET    | `/api/playlists/{playlist_id}/`        |
-| Create a playlist  | POST   | `/api/playlists/create/`               |
-| Update a playlist  | PUT    | `/api/playlists/{playlist_id}/update/` |
-| Delete a playlist  | DELETE | `/api/playlists/{playlist_id}/delete/` |
-
-**Create / Update request body:**
-
-```json
-{
-	"name": "string"
-}
-```
-
-> `name` is **required**.
-
-**List response:**
-
-```json
-{
-	"playlist_list": [
-		{
-			"playlist_id": "uuid",
-			"name": "string",
-			"create_at": "2026-01-01T00:00:00"
-		}
-	]
-}
-```
+| Operation              | Method | URL                                              |
+| ---------------------- | ------ | ------------------------------------------------ |
+| List playlists         | GET    | `/api/playlists/`                                |
+| Get a playlist         | GET    | `/api/playlists/{playlist_id}/`                  |
+| Create a playlist      | POST   | `/api/playlists/create/`                         |
+| Update a playlist      | PUT    | `/api/playlists/{playlist_id}/update/`           |
+| Delete a playlist      | DELETE | `/api/playlists/{playlist_id}/delete/`           |
+| Add song to playlist   | POST   | `/api/playlists/{playlist_id}/songs/{song_id}/`  |
+| Remove song            | DELETE | `/api/playlists/{playlist_id}/songs/{song_id}/`  |
 
 ---
 
 #### Creator
 
-| Operation         | Method | URL                                  |
-| ----------------- | ------ | ------------------------------------ |
-| List all creators | GET    | `/api/creators/`                     |
-| Get a creator     | GET    | `/api/creators/{creator_id}/`        |
-| Create a creator  | POST   | `/api/creators/create/`              |
-| Update a creator  | PUT    | `/api/creators/{creator_id}/update/` |
-| Delete a creator  | DELETE | `/api/creators/{creator_id}/delete/` |
-
-**Create / Update request body:**
-
-```json
-{
-	"email": "string"
-}
-```
-
-> `email` is **required** and must be unique.
-
-**List response:**
-
-```json
-{
-	"creator_list": [
-		{
-			"creator_id": "uuid",
-			"email": "string"
-		}
-	]
-}
-```
+| Operation      | Method | URL                                  |
+| -------------- | ------ | ------------------------------------ |
+| List creators  | GET    | `/api/creators/`                     |
+| Sync creator   | POST   | `/api/creators/sync/`                |
+| Get a creator  | GET    | `/api/creators/{creator_id}/`        |
+| Update creator | PUT    | `/api/creators/{creator_id}/update/` |
+| Delete creator | DELETE | `/api/creators/{creator_id}/delete/` |
 
 ---
 
@@ -199,18 +206,11 @@ Base URL: `http://localhost:8000/api`
 | 404    | Resource not found                           |
 | 405    | Method not allowed                           |
 
-**Validation error example:**
+---
 
-```json
-{
-	"error": "Missing required fields",
-	"fields": ["title", "occasion"]
-}
-```
+## Use Case
 
-# Use Case
-
-## Song Generation
+### Song Generation
 
 ```mermaid
 sequenceDiagram

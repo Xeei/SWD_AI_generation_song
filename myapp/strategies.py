@@ -24,7 +24,7 @@ _DEFAULT_MOCK_FILE = "happy.mp3"
 # ABtract CLass for hide how it work inside 
 class SongGenerateStrategy(abc.ABC):
     @abc.abstractmethod
-    def generate(self, title: str, style: str, callback_url: str, vocal_gender: str, prompt: str = "") -> str:
+    def generate(self, title: str, style: str, callback_url: str) -> str:
         """Submit generation job. Returns task_id."""
 
     @abc.abstractmethod
@@ -33,17 +33,15 @@ class SongGenerateStrategy(abc.ABC):
 
 
 class SunoStrategy(SongGenerateStrategy):
-    def generate(self, title, style, callback_url, vocal_gender, prompt="") -> str:
+    def generate(self, title, style, callback_url) -> str:
         url = f"{SUNO_API_BASE_URL}/api/v1/generate"
         payload = {
             "customMode": True,
-            "instrumental": False,
+            "instrumental": True,
             "model": "V4",
             "title": title,
             "style": style,
             "callBackUrl": callback_url,
-            "vocalGender": vocal_gender,
-            "prompt": prompt,
         }
         headers = {
             "Authorization": f"Bearer {SUNO_API_TOKEN}",
@@ -69,7 +67,7 @@ class SunoStrategy(SongGenerateStrategy):
 class MockStrategy(SongGenerateStrategy):
     _pending: dict[str, str] = {}  # task_id -> audio_url
 
-    def generate(self, title, style, callback_url, vocal_gender, prompt="") -> str:
+    def generate(self, title, style, callback_url) -> str:
         task_id = f"mock_{uuid.uuid4().hex}"
         filename = _STYLE_TO_FILE.get(style, _DEFAULT_MOCK_FILE)
         MockStrategy._pending[task_id] = f"{_MOCK_AUDIO_BASE}/{filename}"

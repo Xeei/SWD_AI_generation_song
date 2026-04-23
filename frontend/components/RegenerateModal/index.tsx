@@ -1,27 +1,32 @@
 "use client"
 
-import { useEffect, useState } from 'react'
-import { SongResponse, RegeneratePayload, useRegenerateSong } from '@/services/song.service'
-import { useCreatorId } from '@/services/creator.service'
+import { useEffect, useState } from "react"
+import {
+    SongResponse,
+    RegeneratePayload,
+    useRegenerateSong,
+} from "@/services/song.service"
+import { useCreatorId } from "@/services/creator.service"
+import { useSession } from "next-auth/react"
 
 const MOOD_OPTIONS = [
-    { value: 1, label: 'Happy' },
-    { value: 2, label: 'Sad' },
-    { value: 3, label: 'Upbeat' },
-    { value: 4, label: 'Romantic' },
-    { value: 5, label: 'Chill' },
-    { value: 6, label: 'Epic' },
+    { value: 1, label: "Happy" },
+    { value: 2, label: "Sad" },
+    { value: 3, label: "Upbeat" },
+    { value: 4, label: "Romantic" },
+    { value: 5, label: "Chill" },
+    { value: 6, label: "Epic" },
 ]
 
 const VOICE_OPTIONS = [
-    { value: 1, label: 'Male' },
-    { value: 2, label: 'Female' },
+    { value: 1, label: "Male" },
+    { value: 2, label: "Female" },
 ]
 
 function formatDuration(seconds: number): string {
     const m = Math.floor(seconds / 60)
     const s = seconds % 60
-    return `${m}:${String(s).padStart(2, '0')}`
+    return `${m}:${String(s).padStart(2, "0")}`
 }
 
 interface Props {
@@ -35,15 +40,19 @@ export default function RegenerateModal({ song, onClose }: Props) {
     const [error, setError] = useState<string | null>(null)
 
     const [form, setForm] = useState<RegeneratePayload>({
-        title: '',
-        occasion: '',
+        title: "",
+        occasion: "",
         mood_tone: 1,
         voice_type: 1,
         duration: 120,
+        creator_id: "",
     })
+
+    const { data: session } = useSession()
 
     useEffect(() => {
         if (song) {
+            // eslint-disable-next-line react-hooks/set-state-in-effect
             setError(null)
             setForm({
                 title: song.title,
@@ -51,6 +60,7 @@ export default function RegenerateModal({ song, onClose }: Props) {
                 mood_tone: song.mood_tone,
                 voice_type: song.voice_type,
                 duration: song.duration,
+                creator_id: session?.user?.email || "",
             })
         }
     }, [song?.song_id])
@@ -65,13 +75,16 @@ export default function RegenerateModal({ song, onClose }: Props) {
             { songId: song!.song_id, data: { ...form, creator_id: creatorId } },
             {
                 onSuccess: onClose,
-                onError: () => setError('Regeneration failed. Please try again.'),
+                onError: () =>
+                    setError("Regeneration failed. Please try again."),
             }
         )
     }
 
-    const selectClass = "h-8 w-full rounded-lg border border-input bg-transparent px-2.5 text-sm outline-none focus-visible:border-ring"
-    const inputClass = "h-8 w-full rounded-lg border border-input bg-transparent px-2.5 text-sm outline-none focus-visible:border-ring"
+    const selectClass =
+        "h-8 w-full rounded-lg border border-input bg-transparent px-2.5 text-sm outline-none focus-visible:border-ring"
+    const inputClass =
+        "h-8 w-full rounded-lg border border-input bg-transparent px-2.5 text-sm outline-none focus-visible:border-ring"
     const labelClass = "mb-1 block text-xs font-medium text-muted-foreground"
     const readValueClass = "text-sm"
 
@@ -84,54 +97,80 @@ export default function RegenerateModal({ song, onClose }: Props) {
                     <div className="grid grid-cols-2 gap-6">
                         {/* Left: current values */}
                         <div>
-                            <h3 className="mb-3 text-sm font-semibold text-muted-foreground uppercase tracking-wide">Current</h3>
+                            <h3 className="mb-3 text-sm font-semibold tracking-wide text-muted-foreground uppercase">
+                                Current
+                            </h3>
                             <div className="flex flex-col gap-3">
                                 <div>
                                     <div className={labelClass}>Title</div>
-                                    <div className={readValueClass}>{song.title}</div>
+                                    <div className={readValueClass}>
+                                        {song.title}
+                                    </div>
                                 </div>
                                 <div>
                                     <div className={labelClass}>Occasion</div>
-                                    <div className={readValueClass}>{song.occasion}</div>
+                                    <div className={readValueClass}>
+                                        {song.occasion}
+                                    </div>
                                 </div>
                                 <div>
                                     <div className={labelClass}>Mood</div>
                                     <div className={readValueClass}>
-                                        {MOOD_OPTIONS.find((o) => o.value === song.mood_tone)?.label ?? '—'}
+                                        {MOOD_OPTIONS.find(
+                                            (o) => o.value === song.mood_tone
+                                        )?.label ?? "—"}
                                     </div>
                                 </div>
                                 <div>
                                     <div className={labelClass}>Voice</div>
                                     <div className={readValueClass}>
-                                        {VOICE_OPTIONS.find((o) => o.value === song.voice_type)?.label ?? '—'}
+                                        {VOICE_OPTIONS.find(
+                                            (o) => o.value === song.voice_type
+                                        )?.label ?? "—"}
                                     </div>
                                 </div>
                                 <div>
                                     <div className={labelClass}>Duration</div>
-                                    <div className={readValueClass}>{formatDuration(song.duration)}</div>
+                                    <div className={readValueClass}>
+                                        {formatDuration(song.duration)}
+                                    </div>
                                 </div>
                             </div>
                         </div>
 
                         {/* Right: editable form */}
                         <div>
-                            <h3 className="mb-3 text-sm font-semibold text-muted-foreground uppercase tracking-wide">New</h3>
+                            <h3 className="mb-3 text-sm font-semibold tracking-wide text-muted-foreground uppercase">
+                                New
+                            </h3>
                             <div className="flex flex-col gap-3">
                                 <div>
                                     <label className={labelClass}>Title</label>
                                     <input
                                         className={inputClass}
                                         value={form.title}
-                                        onChange={(e) => setForm((f) => ({ ...f, title: e.target.value }))}
+                                        onChange={(e) =>
+                                            setForm((f) => ({
+                                                ...f,
+                                                title: e.target.value,
+                                            }))
+                                        }
                                         required
                                     />
                                 </div>
                                 <div>
-                                    <label className={labelClass}>Occasion</label>
+                                    <label className={labelClass}>
+                                        Occasion
+                                    </label>
                                     <input
                                         className={inputClass}
                                         value={form.occasion}
-                                        onChange={(e) => setForm((f) => ({ ...f, occasion: e.target.value }))}
+                                        onChange={(e) =>
+                                            setForm((f) => ({
+                                                ...f,
+                                                occasion: e.target.value,
+                                            }))
+                                        }
                                         required
                                     />
                                 </div>
@@ -140,10 +179,22 @@ export default function RegenerateModal({ song, onClose }: Props) {
                                     <select
                                         className={selectClass}
                                         value={form.mood_tone}
-                                        onChange={(e) => setForm((f) => ({ ...f, mood_tone: Number(e.target.value) }))}
+                                        onChange={(e) =>
+                                            setForm((f) => ({
+                                                ...f,
+                                                mood_tone: Number(
+                                                    e.target.value
+                                                ),
+                                            }))
+                                        }
                                     >
                                         {MOOD_OPTIONS.map((o) => (
-                                            <option key={o.value} value={o.value}>{o.label}</option>
+                                            <option
+                                                key={o.value}
+                                                value={o.value}
+                                            >
+                                                {o.label}
+                                            </option>
                                         ))}
                                     </select>
                                 </div>
@@ -152,22 +203,44 @@ export default function RegenerateModal({ song, onClose }: Props) {
                                     <select
                                         className={selectClass}
                                         value={form.voice_type}
-                                        onChange={(e) => setForm((f) => ({ ...f, voice_type: Number(e.target.value) }))}
+                                        onChange={(e) =>
+                                            setForm((f) => ({
+                                                ...f,
+                                                voice_type: Number(
+                                                    e.target.value
+                                                ),
+                                            }))
+                                        }
                                     >
                                         {VOICE_OPTIONS.map((o) => (
-                                            <option key={o.value} value={o.value}>{o.label}</option>
+                                            <option
+                                                key={o.value}
+                                                value={o.value}
+                                            >
+                                                {o.label}
+                                            </option>
                                         ))}
                                     </select>
                                 </div>
                                 <div>
-                                    <label className={labelClass}>Duration — {formatDuration(form.duration)}</label>
+                                    <label className={labelClass}>
+                                        Duration —{" "}
+                                        {formatDuration(form.duration)}
+                                    </label>
                                     <input
                                         type="range"
                                         min={120}
                                         max={360}
                                         step={10}
                                         value={form.duration}
-                                        onChange={(e) => setForm((f) => ({ ...f, duration: Number(e.target.value) }))}
+                                        onChange={(e) =>
+                                            setForm((f) => ({
+                                                ...f,
+                                                duration: Number(
+                                                    e.target.value
+                                                ),
+                                            }))
+                                        }
                                         className="w-full accent-primary"
                                     />
                                 </div>
@@ -193,7 +266,7 @@ export default function RegenerateModal({ song, onClose }: Props) {
                             disabled={isPending}
                             className="h-8 rounded-lg bg-primary px-4 text-sm font-medium text-primary-foreground disabled:opacity-50"
                         >
-                            {isPending ? 'Regenerating…' : 'Regenerate'}
+                            {isPending ? "Regenerating…" : "Regenerate"}
                         </button>
                     </div>
                 </form>

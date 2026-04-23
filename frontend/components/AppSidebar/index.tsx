@@ -10,11 +10,14 @@ import {
     SidebarMenuButton,
     SidebarMenuItem,
 } from "@/components/ui/sidebar"
-import { Disc, Library, Music } from "lucide-react"
+import { Disc, Library, ListMusic, Music } from "lucide-react"
+import AuthButton from "@/components/AuthButton"
+import Link from "next/link"
 
 const menuItems = [
     { title: "Generation", icon: Music, href: "/generation" },
     { title: "Library", icon: Library, href: "/library" },
+    { title: "Playlists", icon: ListMusic, href: "/playlists" },
 ]
 
 export function AppSidebar() {
@@ -23,9 +26,16 @@ export function AppSidebar() {
             <SidebarHeader>
                 <SidebarMenu>
                     <SidebarMenuItem>
-                        <SidebarMenuButton className="flex h-auto items-center gap-3 py-3">
-                            <Disc size={72} />
-                            <span className="text-lg font-bold">SongGen</span>
+                        <SidebarMenuButton>
+                            <Link
+                                href={"/"}
+                                className="flex h-auto items-center gap-3 py-3"
+                            >
+                                <Disc size={72} />
+                                <span className="text-lg font-bold">
+                                    SongGen
+                                </span>
+                            </Link>
                         </SidebarMenuButton>
                     </SidebarMenuItem>
                 </SidebarMenu>
@@ -37,17 +47,19 @@ export function AppSidebar() {
                         {menuItems.map((item) => (
                             <SidebarMenuItem key={item.title}>
                                 <SidebarMenuButton asChild>
-                                    <a href={item.href}>
+                                    <Link href={item.href}>
                                         <item.icon />
                                         <span>{item.title}</span>
-                                    </a>
+                                    </Link>
                                 </SidebarMenuButton>
                             </SidebarMenuItem>
                         ))}
                     </SidebarMenu>
                 </SidebarGroup>
             </SidebarContent>
-            <SidebarFooter />
+            <SidebarFooter className="p-3">
+                <AuthButton />
+            </SidebarFooter>
         </Sidebar>
     )
 }

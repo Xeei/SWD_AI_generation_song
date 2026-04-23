@@ -5,23 +5,27 @@ import { Input } from '@/components/ui/input'
 import SongList from '@/components/SongList'
 import AudioPlayer from '@/components/AudioPlayer'
 import RegenerateModal from '@/components/RegenerateModal'
+import AddToPlaylistModal from '@/components/AddToPlaylistModal'
 import { Skeleton } from '@/components/ui/skeleton'
 import {
     GenerationStatus,
     SongResponse,
     useSongs,
     useUpdateSong,
+    useDeleteSong,
 } from '@/services/song.service'
 
 export default function LibraryPage() {
     const { data: songs, isLoading } = useSongs()
     const { mutate: updateSong } = useUpdateSong()
+    const { mutate: deleteSong } = useDeleteSong()
 
     const [searchQuery, setSearchQuery] = useState('')
     const [statusFilter, setStatusFilter] = useState<number | ''>('')
     const [favoritesOnly, setFavoritesOnly] = useState(false)
     const [currentSong, setCurrentSong] = useState<SongResponse | null>(null)
     const [regenerateSong, setRegenerateSong] = useState<SongResponse | null>(null)
+    const [playlistSong, setPlaylistSong] = useState<SongResponse | null>(null)
 
     const filteredSongs = useMemo(() => {
         if (!songs) return []
@@ -33,6 +37,15 @@ export default function LibraryPage() {
             return true
         })
     }, [songs, searchQuery, statusFilter, favoritesOnly])
+
+    function handleDelete(song: SongResponse) {
+        if (!window.confirm(`Delete "${song.title}"? This cannot be undone.`)) return
+        deleteSong(song.song_id, {
+            onSuccess: () => {
+                if (currentSong?.song_id === song.song_id) setCurrentSong(null)
+            },
+        })
+    }
 
     function handleFavorite(song: SongResponse) {
         updateSong(
@@ -97,10 +110,13 @@ export default function LibraryPage() {
                     onPlay={setCurrentSong}
                     onFavorite={handleFavorite}
                     onRegenerate={setRegenerateSong}
+                    onAddToPlaylist={setPlaylistSong}
+                    onDelete={handleDelete}
                 />
             )}
 
             <RegenerateModal song={regenerateSong} onClose={() => setRegenerateSong(null)} />
+            <AddToPlaylistModal song={playlistSong} onClose={() => setPlaylistSong(null)} />
             <AudioPlayer song={currentSong} onClose={() => setCurrentSong(null)} />
         </div>
     )

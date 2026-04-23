@@ -11,7 +11,7 @@ echo "🚀 Launching development environment..."
 
 # 1. Start Frontend
 echo "📦 Starting Frontend..."
-(cd "$BASE_DIR/frontend" && npm run start) &
+(cd "$BASE_DIR/frontend" && npm run dev) &
 
 # Give the frontend a second to initialize logs
 sleep 1

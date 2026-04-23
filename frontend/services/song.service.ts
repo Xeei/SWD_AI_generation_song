@@ -1,6 +1,7 @@
 import axios from 'axios'
 import { useQuery, useMutation } from '@tanstack/react-query'
 import { queryClient } from '@/lib/queryClient'
+import { useCreatorId } from '@/services/creator.service'
 
 const instance = axios.create({
     baseURL: 'http://localhost:8000/api',
@@ -65,16 +66,19 @@ export const useSongById = (songId: string | null) =>
         },
     })
 
-export const getSongs = (): Promise<SongResponse[]> =>
+export const getSongs = (creatorId: string): Promise<SongResponse[]> =>
     instance
-        .get<{ song_list: SongResponse[] }>('/songs/')
+        .get<{ song_list: SongResponse[] }>('/songs/', { params: { creator_id: creatorId } })
         .then((res) => res.data.song_list)
 
-export const useSongs = () =>
-    useQuery({
-        queryKey: songKeys.all,
-        queryFn: getSongs,
+export const useSongs = () => {
+    const creatorId = useCreatorId()
+    return useQuery({
+        queryKey: [...songKeys.all, creatorId],
+        queryFn: () => getSongs(creatorId!),
+        enabled: !!creatorId,
     })
+}
 
 export const updateSong = (
     songId: string,
@@ -108,5 +112,14 @@ export const useRegenerateSong = () =>
     useMutation({
         mutationFn: ({ songId, data }: { songId: string; data: RegeneratePayload }) =>
             regenerateSong(songId, data),
+        onSuccess: () => queryClient.invalidateQueries({ queryKey: songKeys.all }),
+    })
+
+export const deleteSong = (songId: string): Promise<void> =>
+    instance.delete(`/songs/${songId}/delete/`).then(() => undefined)
+
+export const useDeleteSong = () =>
+    useMutation({
+        mutationFn: (songId: string) => deleteSong(songId),
         onSuccess: () => queryClient.invalidateQueries({ queryKey: songKeys.all }),
     })

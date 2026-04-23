@@ -1,17 +1,16 @@
 import json
 import os
-import requests
 
 from django.conf import settings
 from django.http import FileResponse, Http404, JsonResponse
 from django.views.decorators.csrf import csrf_exempt
 
-from .models import Song, PlayList, Creator, VoiceType
+from .models import Song, PlayList, Creator, PlaylistSong
+from django.db.models import Max
 from .models.Choices import GenerationStatus, MoodTone
 from .strategies import get_strategy
 
 CALLBACK_BASE_URL = os.environ.get("CALLBACK_BASE_URL", "http://localhost:8000")
-GEMINI_API_KEY = os.environ.get("GEMINI_API_KEY", "")
 
 _strategy = get_strategy()
 
@@ -23,70 +22,6 @@ MOOD_TONE_STYLE = {
     MoodTone.CHILL: "Chill, relaxing",
     MoodTone.EPIC: "Epic, cinematic",
 }
-
-
-def _build_prompt_fallback(title: str, occasion: str, mood_tone: int) -> str:
-    mood = MOOD_TONE_STYLE.get(mood_tone, "")
-    return (
-        f"[verse]\n"
-        f"A {mood.lower()} song for {occasion}.\n"
-        f"{title}, a special moment to remember.\n"
-        f"Memories that will last forever,\n"
-        f"Celebrating this day together.\n\n"
-        f"[chorus]\n"
-        f"{title}, oh {title},\n"
-        f"This {occasion} means so much.\n"
-        f"Every moment shared with love,\n"
-        f"Touched by your gentle touch.\n\n"
-        f"[verse]\n"
-        f"The laughter and the joy we share,\n"
-        f"Show how much we truly care.\n"
-        f"Through the years and days gone by,\n"
-        f"Our bond will never say goodbye.\n\n"
-        f"[chorus]\n"
-        f"{title}, oh {title},\n"
-        f"This {occasion} means so much.\n"
-        f"Every moment shared with love,\n"
-        f"Touched by your gentle touch.\n\n"
-        f"[outro]\n"
-        f"Here's to you on this special day.\n"
-        f"[end]"
-    )
-
-def _build_prompt(title: str, occasion: str, mood_tone: int) -> str:
-    mood = MOOD_TONE_STYLE.get(mood_tone, "")
-    if not GEMINI_API_KEY:
-        return _build_prompt_fallback(title, occasion, mood_tone)
-
-    system_instruction = (
-        "You are a professional songwriter. Generate song lyrics using ONLY these structural tags: "
-        "[verse], [chorus], [outro], [end]. "
-        "Output ONLY the lyrics with tags — no explanations, no extra text, no markdown."
-    )
-    user_prompt = (
-        f"Write original song lyrics for a {mood.lower()} song.\n"
-        f"Song title: {title}\n"
-        f"Occasion: {occasion}\n"
-        f"Structure: [verse], [chorus], [verse], [chorus], [outro], [end]\n"
-        f"Each section 4 lines. Make it heartfelt and specific to the occasion."
-    )
-
-    try:
-        url = (
-            f"https://generativelanguage.googleapis.com/v1beta/models/"
-            f"gemini-2.0-flash:generateContent?key={GEMINI_API_KEY}"
-        )
-        payload = {
-            "system_instruction": {"parts": [{"text": system_instruction}]},
-            "contents": [{"parts": [{"text": user_prompt}]}],
-            "generationConfig": {"temperature": 0.9, "maxOutputTokens": 512},
-        }
-        resp = requests.post(url, json=payload, timeout=15)
-        resp.raise_for_status()
-        lyrics = resp.json()["candidates"][0]["content"]["parts"][0]["text"].strip()
-        return lyrics
-    except Exception:
-        return _build_prompt_fallback(title, occasion, mood_tone)
 
 
 # ── Exceptions ────────────────────────────────────────────────────────────────
@@ -104,8 +39,11 @@ class ValidationError(Exception):
 # ── Use Cases ─────────────────────────────────────────────────────────────────
 
 class SongUseCase:
-    def list_songs(self):
-        return [self._to_dict(s) for s in Song.objects.all()]
+    def list_songs(self, creator_id=None):
+        qs = Song.objects.all()
+        if creator_id:
+            qs = qs.filter(creator_id=creator_id)
+        return [self._to_dict(s) for s in qs]
 
     def get_song(self, song_id):
         try:
@@ -138,13 +76,11 @@ class SongUseCase:
         except (TypeError, ValueError):
             raise ValidationError("Invalid field type")
 
-        vocal_gender = 'f' if voice_type_int == VoiceType.FEMALE else 'm'
         style = MOOD_TONE_STYLE.get(mood_tone_int, "Pop")
         callback_url = f"{CALLBACK_BASE_URL}/api/songs/callback/"
 
         try:
-            prompt = _build_prompt(song.title, song.occasion, mood_tone_int)
-            task_id = _strategy.generate(song.title, style, callback_url, vocal_gender, prompt=prompt)
+            task_id = _strategy.generate(song.title, style, callback_url)
             song.suno_task_id = task_id
             song.save(update_fields=["suno_task_id"])
         except RuntimeError:
@@ -208,13 +144,11 @@ class SongUseCase:
         except (TypeError, ValueError):
             raise ValidationError("Invalid field type")
 
-        vocal_gender = 'f' if voice_type_int == VoiceType.FEMALE else 'm'
         style = MOOD_TONE_STYLE.get(mood_tone_int, "Pop")
         callback_url = f"{CALLBACK_BASE_URL}/api/songs/callback/"
-        prompt = _build_prompt(title, occasion, mood_tone_int)
 
         try:
-            task_id = _strategy.generate(title, style, callback_url, vocal_gender, prompt=prompt)
+            task_id = _strategy.generate(title, style, callback_url)
         except RuntimeError:
             song.generation_status = GenerationStatus.ERROR
             song.save(update_fields=["generation_status"])
@@ -277,8 +211,11 @@ class SongUseCase:
 
 
 class PlaylistUseCase:
-    def list_playlists(self):
-        return [self._to_dict(p) for p in PlayList.objects.all()]
+    def list_playlists(self, creator_id=None):
+        qs = PlayList.objects.all()
+        if creator_id:
+            qs = qs.filter(creator_id=creator_id)
+        return [self._to_dict(p) for p in qs]
 
     def get_playlist(self, playlist_id):
         try:
@@ -287,9 +224,15 @@ class PlaylistUseCase:
             raise NotFound("PlayList not found")
 
     def create_playlist(self, data):
-        if not data.get("name"):
-            raise ValidationError("Missing required fields", fields=["name"])
-        playlist = PlayList.objects.create(name=data["name"])
+        required = ["name", "creator_id"]
+        missing = [f for f in required if data.get(f) in (None, "")]
+        if missing:
+            raise ValidationError("Missing required fields", fields=missing)
+        try:
+            Creator.objects.get(pk=data["creator_id"])
+        except Creator.DoesNotExist:
+            raise ValidationError("Creator not found", fields=["creator_id"])
+        playlist = PlayList.objects.create(name=data["name"], creator_id=data["creator_id"])
         return self._to_dict(playlist)
 
     def update_playlist(self, playlist_id, data):
@@ -309,11 +252,53 @@ class PlaylistUseCase:
         except PlayList.DoesNotExist:
             raise NotFound("PlayList not found")
 
+    def add_song(self, playlist_id, song_id):
+        try:
+            playlist = PlayList.objects.get(pk=playlist_id)
+        except PlayList.DoesNotExist:
+            raise NotFound("PlayList not found")
+        try:
+            song = Song.objects.get(pk=song_id)
+        except Song.DoesNotExist:
+            raise NotFound("Song not found")
+        max_order = playlist.playlist_songs.aggregate(m=Max('order'))['m'] or 0
+        PlaylistSong.objects.get_or_create(
+            playlist=playlist, song=song,
+            defaults={'order': max_order + 1},
+        )
+        return self._to_dict(playlist)
+
+    def remove_song(self, playlist_id, song_id):
+        try:
+            playlist = PlayList.objects.get(pk=playlist_id)
+        except PlayList.DoesNotExist:
+            raise NotFound("PlayList not found")
+        PlaylistSong.objects.filter(playlist=playlist, song_id=song_id).delete()
+        return self._to_dict(playlist)
+
     def _to_dict(self, p):
+        songs = [
+            {
+                "song_id": str(ps.song.song_id),
+                "title": ps.song.title,
+                "occasion": ps.song.occasion,
+                "mood_tone": ps.song.mood_tone,
+                "voice_type": ps.song.voice_type,
+                "duration": ps.song.duration,
+                "generation_status": ps.song.generation_status,
+                "audio_file_url": ps.song.audio_file_url,
+                "share_url": ps.song.share_url,
+                "is_favorite": ps.song.is_favorite,
+                "time_stamp": ps.song.time_stamp.isoformat(),
+            }
+            for ps in p.playlist_songs.select_related("song").order_by("order")
+        ]
         return {
             "playlist_id": str(p.playlist_id),
             "name": p.name,
             "create_at": p.create_at.isoformat(),
+            "song_count": len(songs),
+            "songs": songs,
         }
 
 
@@ -426,7 +411,8 @@ def _error_response(e):
 # Song
 
 def song_list_view(request):
-    return JsonResponse({"song_list": SongUseCase().list_songs()})
+    creator_id = request.GET.get("creator_id") or None
+    return JsonResponse({"song_list": SongUseCase().list_songs(creator_id=creator_id)})
 
 
 @csrf_exempt
@@ -479,7 +465,8 @@ def delete_song_view(request, song_id):
 # PlayList
 
 def playlist_list_view(request):
-    return JsonResponse({"playlist_list": PlaylistUseCase().list_playlists()})
+    creator_id = request.GET.get("creator_id")
+    return JsonResponse({"playlist_list": PlaylistUseCase().list_playlists(creator_id=creator_id)})
 
 
 @csrf_exempt
@@ -527,6 +514,22 @@ def delete_playlist_view(request, playlist_id):
     except (NotFound, ValidationError) as e:
         return _error_response(e)
     return JsonResponse({"message": "PlayList deleted successfully"})
+
+
+@csrf_exempt
+def playlist_song_view(request, playlist_id, song_id):
+    uc = PlaylistUseCase()
+    try:
+        if request.method == "POST":
+            playlist = uc.add_song(playlist_id, song_id)
+            return JsonResponse({"message": "Song added to playlist", "playlist": playlist})
+        elif request.method == "DELETE":
+            playlist = uc.remove_song(playlist_id, song_id)
+            return JsonResponse({"message": "Song removed from playlist", "playlist": playlist})
+        else:
+            return JsonResponse({"error": "Method not allowed"}, status=405)
+    except (NotFound, ValidationError) as e:
+        return _error_response(e)
 
 
 # Creator

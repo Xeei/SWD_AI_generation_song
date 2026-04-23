@@ -1,12 +1,12 @@
+'use client'
+
+import { useState } from 'react'
+import { DropdownMenu } from 'radix-ui'
 import { SongResponse, GenerationStatus } from '@/services/song.service'
+import { downloadAudio } from '@/lib/download'
 
 const MOOD_LABEL: Record<number, string> = {
-    1: 'Happy',
-    2: 'Sad',
-    3: 'Upbeat',
-    4: 'Romantic',
-    5: 'Chill',
-    6: 'Epic',
+    1: 'Happy', 2: 'Sad', 3: 'Upbeat', 4: 'Romantic', 5: 'Chill', 6: 'Epic',
 }
 
 const MOOD_CLASS: Record<number, string> = {
@@ -30,9 +30,37 @@ interface Props {
     onPlay: (song: SongResponse) => void
     onFavorite: (song: SongResponse) => void
     onRegenerate: (song: SongResponse) => void
+    onAddToPlaylist?: (song: SongResponse) => void
+    onDelete?: (song: SongResponse) => void
 }
 
-export default function SongList({ songs, currentSongId, onPlay, onFavorite, onRegenerate }: Props) {
+const itemCls =
+    'flex w-full cursor-pointer items-center gap-2 rounded-md px-2.5 py-1.5 text-sm outline-none select-none data-highlighted:bg-accent data-highlighted:text-accent-foreground'
+const destructiveCls =
+    'flex w-full cursor-pointer items-center gap-2 rounded-md px-2.5 py-1.5 text-sm text-destructive outline-none select-none data-highlighted:bg-destructive/10'
+
+export default function SongList({ songs, currentSongId, onPlay, onFavorite, onRegenerate, onAddToPlaylist, onDelete }: Props) {
+    const [copiedId, setCopiedId] = useState<string | null>(null)
+    const [downloadingId, setDownloadingId] = useState<string | null>(null)
+
+    function handleShare(song: SongResponse) {
+        const url = `${window.location.origin}/share/${song.song_id}`
+        navigator.clipboard.writeText(url).then(() => {
+            setCopiedId(song.song_id)
+            setTimeout(() => setCopiedId(null), 2000)
+        })
+    }
+
+    async function handleDownload(song: SongResponse) {
+        if (!song.audio_file_url) return
+        setDownloadingId(song.song_id)
+        try {
+            await downloadAudio(song.audio_file_url, song.title)
+        } finally {
+            setDownloadingId(null)
+        }
+    }
+
     if (songs.length === 0) {
         return (
             <div className="flex min-h-40 items-center justify-center text-sm text-muted-foreground">
@@ -44,13 +72,12 @@ export default function SongList({ songs, currentSongId, onPlay, onFavorite, onR
     return (
         <div className="flex flex-col gap-1">
             {/* Header */}
-            <div className="grid grid-cols-[32px_1fr_100px_60px_90px_32px_32px] gap-3 px-3 py-1 text-xs font-semibold uppercase tracking-wide text-muted-foreground">
+            <div className="grid grid-cols-[32px_1fr_100px_60px_90px_32px] gap-3 px-3 py-1 text-xs font-semibold uppercase tracking-wide text-muted-foreground">
                 <span />
                 <span>Title</span>
                 <span>Mood</span>
                 <span>Duration</span>
                 <span>Status</span>
-                <span />
                 <span />
             </div>
 
@@ -75,15 +102,12 @@ export default function SongList({ songs, currentSongId, onPlay, onFavorite, onR
                     <div
                         key={song.song_id}
                         className={[
-                            'grid grid-cols-[32px_1fr_100px_60px_90px_32px_32px] gap-3 items-center rounded-lg border px-3 py-2 transition-colors',
-                            isPlaying
-                                ? 'border-primary bg-primary/10'
-                                : 'border-border bg-card',
+                            'grid grid-cols-[32px_1fr_100px_60px_90px_32px] gap-3 items-center rounded-lg border px-3 py-2 transition-colors',
+                            isPlaying ? 'border-primary bg-primary/10' : 'border-border bg-card',
                             !isPlayable && 'opacity-50',
-                        ]
-                            .filter(Boolean)
-                            .join(' ')}
+                        ].filter(Boolean).join(' ')}
                     >
+                        {/* Play */}
                         <button
                             type="button"
                             onClick={() => onPlay(song)}
@@ -94,49 +118,118 @@ export default function SongList({ songs, currentSongId, onPlay, onFavorite, onR
                             {isPlaying ? '⏸' : '▶'}
                         </button>
 
+                        {/* Title / occasion */}
                         <div className="min-w-0">
                             <div className="truncate text-sm font-semibold">{song.title}</div>
-                            <div className="truncate text-xs text-muted-foreground">
-                                {song.occasion}
-                            </div>
+                            <div className="truncate text-xs text-muted-foreground">{song.occasion}</div>
                         </div>
 
-                        <span
-                            className={`w-fit rounded-full px-2 py-0.5 text-xs ${MOOD_CLASS[song.mood_tone] ?? 'bg-muted text-muted-foreground'}`}
-                        >
+                        {/* Mood */}
+                        <span className={`w-fit rounded-full px-2 py-0.5 text-xs ${MOOD_CLASS[song.mood_tone] ?? 'bg-muted text-muted-foreground'}`}>
                             {MOOD_LABEL[song.mood_tone] ?? '—'}
                         </span>
 
+                        {/* Duration */}
                         <span className="text-xs text-muted-foreground">
                             {isPlayable ? formatDuration(song.duration) : '—'}
                         </span>
 
+                        {/* Status */}
                         <span className={`w-fit rounded-full px-2 py-0.5 text-xs ${statusClass}`}>
                             {statusLabel}
                         </span>
 
-                        <button
-                            type="button"
-                            onClick={() => onFavorite(song)}
-                            className={
-                                song.is_favorite
-                                    ? 'text-amber-400'
-                                    : 'text-muted-foreground hover:text-amber-400'
-                            }
-                            aria-label={song.is_favorite ? 'Unfavorite' : 'Favorite'}
-                        >
-                            {song.is_favorite ? '♥' : '♡'}
-                        </button>
+                        {/* Actions dropdown */}
+                        <DropdownMenu.Root>
+                            <DropdownMenu.Trigger asChild>
+                                <button
+                                    type="button"
+                                    className="flex h-7 w-7 items-center justify-center rounded-md text-muted-foreground hover:bg-accent hover:text-foreground"
+                                    aria-label="Song actions"
+                                >
+                                    •••
+                                </button>
+                            </DropdownMenu.Trigger>
 
-                        <button
-                            type="button"
-                            onClick={() => onRegenerate(song)}
-                            disabled={!isPlayable}
-                            className="flex items-center justify-center text-muted-foreground hover:text-primary disabled:cursor-not-allowed disabled:opacity-30"
-                            aria-label="Regenerate"
-                        >
-                            ↺
-                        </button>
+                            <DropdownMenu.Portal>
+                                <DropdownMenu.Content
+                                    className="z-50 min-w-44 overflow-hidden rounded-lg border border-border bg-popover text-popover-foreground shadow-md"
+                                    align="end"
+                                    sideOffset={4}
+                                >
+                                    <DropdownMenu.Group className="p-1">
+                                        {/* Favorite */}
+                                        <DropdownMenu.Item
+                                            className={itemCls}
+                                            onSelect={() => onFavorite(song)}
+                                        >
+                                            <span className={song.is_favorite ? 'text-amber-400' : ''}>
+                                                {song.is_favorite ? '♥' : '♡'}
+                                            </span>
+                                            {song.is_favorite ? 'Unfavorite' : 'Favorite'}
+                                        </DropdownMenu.Item>
+
+                                        {/* Regenerate */}
+                                        <DropdownMenu.Item
+                                            className={itemCls}
+                                            disabled={!isPlayable}
+                                            onSelect={() => onRegenerate(song)}
+                                        >
+                                            <span>↺</span>
+                                            Regenerate
+                                        </DropdownMenu.Item>
+
+                                        {/* Copy share link */}
+                                        <DropdownMenu.Item
+                                            className={itemCls}
+                                            onSelect={() => handleShare(song)}
+                                        >
+                                            <span className={copiedId === song.song_id ? 'text-green-400' : ''}>
+                                                {copiedId === song.song_id ? '✓' : '⎘'}
+                                            </span>
+                                            {copiedId === song.song_id ? 'Copied!' : 'Copy share link'}
+                                        </DropdownMenu.Item>
+
+                                        {/* Download */}
+                                        <DropdownMenu.Item
+                                            className={itemCls}
+                                            disabled={!isPlayable || downloadingId === song.song_id}
+                                            onSelect={() => handleDownload(song)}
+                                        >
+                                            <span>{downloadingId === song.song_id ? '⏳' : '↓'}</span>
+                                            {downloadingId === song.song_id ? 'Downloading…' : 'Download'}
+                                        </DropdownMenu.Item>
+
+                                        {/* Add to playlist */}
+                                        {onAddToPlaylist && (
+                                            <DropdownMenu.Item
+                                                className={itemCls}
+                                                onSelect={() => onAddToPlaylist(song)}
+                                            >
+                                                <span>+</span>
+                                                Add to playlist
+                                            </DropdownMenu.Item>
+                                        )}
+                                    </DropdownMenu.Group>
+
+                                    {/* Delete — destructive, separated */}
+                                    {onDelete && (
+                                        <>
+                                            <DropdownMenu.Separator className="my-1 h-px bg-border" />
+                                            <DropdownMenu.Group className="p-1">
+                                                <DropdownMenu.Item
+                                                    className={destructiveCls}
+                                                    onSelect={() => onDelete(song)}
+                                                >
+                                                    <span>🗑</span>
+                                                    Delete
+                                                </DropdownMenu.Item>
+                                            </DropdownMenu.Group>
+                                        </>
+                                    )}
+                                </DropdownMenu.Content>
+                            </DropdownMenu.Portal>
+                        </DropdownMenu.Root>
                     </div>
                 )
             })}
