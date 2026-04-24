@@ -58,6 +58,7 @@ AUTH_GOOGLE_SECRET=your_google_client_secret
 ```
 
 > **Getting Google OAuth credentials:**
+>
 > 1. Go to [Google Cloud Console](https://console.cloud.google.com/) → APIs & Services → Credentials
 > 2. Create OAuth 2.0 Client ID (Web application)
 > 3. Add `http://localhost:3000/api/auth/callback/google` to Authorized redirect URIs
@@ -153,6 +154,13 @@ npm run dev
 
 <img src="./asset/Domain_Diagram.png" width="100%" height="100%" alt="Domain Diagram" />
 
+### Architecture Diagrams
+
+| Diagram | Description |
+| ------- | ----------- |
+| [Layer Architecture](./docs/architecture.md) | UI / Controller / Model layer breakdown with color-coded Mermaid class diagram |
+| [Generate Song Sequence](./docs/generate-song-sequence.md) | Full sequence diagram for song generation flow including 9 alternative use cases (validation errors, Suno failures, mock strategy, callback handling) |
+
 ### CRUD API Reference
 
 Base URL: `http://localhost:8000/api`
@@ -161,28 +169,28 @@ Base URL: `http://localhost:8000/api`
 
 #### Song
 
-| Operation         | Method | URL                                  |
-| ----------------- | ------ | ------------------------------------ |
-| List songs        | GET    | `/api/songs/`                        |
-| Get a song        | GET    | `/api/songs/{song_id}/`              |
-| Generate a song   | POST   | `/api/songs/generate/`               |
-| Update a song     | PUT    | `/api/songs/{song_id}/update/`       |
-| Delete a song     | DELETE | `/api/songs/{song_id}/delete/`       |
-| Regenerate a song | POST   | `/api/songs/{song_id}/regenerate/`   |
+| Operation         | Method | URL                                |
+| ----------------- | ------ | ---------------------------------- |
+| List songs        | GET    | `/api/songs/`                      |
+| Get a song        | GET    | `/api/songs/{song_id}/`            |
+| Generate a song   | POST   | `/api/songs/generate/`             |
+| Update a song     | PUT    | `/api/songs/{song_id}/update/`     |
+| Delete a song     | DELETE | `/api/songs/{song_id}/delete/`     |
+| Regenerate a song | POST   | `/api/songs/{song_id}/regenerate/` |
 
 ---
 
 #### PlayList
 
-| Operation              | Method | URL                                              |
-| ---------------------- | ------ | ------------------------------------------------ |
-| List playlists         | GET    | `/api/playlists/`                                |
-| Get a playlist         | GET    | `/api/playlists/{playlist_id}/`                  |
-| Create a playlist      | POST   | `/api/playlists/create/`                         |
-| Update a playlist      | PUT    | `/api/playlists/{playlist_id}/update/`           |
-| Delete a playlist      | DELETE | `/api/playlists/{playlist_id}/delete/`           |
-| Add song to playlist   | POST   | `/api/playlists/{playlist_id}/songs/{song_id}/`  |
-| Remove song            | DELETE | `/api/playlists/{playlist_id}/songs/{song_id}/`  |
+| Operation            | Method | URL                                             |
+| -------------------- | ------ | ----------------------------------------------- |
+| List playlists       | GET    | `/api/playlists/`                               |
+| Get a playlist       | GET    | `/api/playlists/{playlist_id}/`                 |
+| Create a playlist    | POST   | `/api/playlists/create/`                        |
+| Update a playlist    | PUT    | `/api/playlists/{playlist_id}/update/`          |
+| Delete a playlist    | DELETE | `/api/playlists/{playlist_id}/delete/`          |
+| Add song to playlist | POST   | `/api/playlists/{playlist_id}/songs/{song_id}/` |
+| Remove song          | DELETE | `/api/playlists/{playlist_id}/songs/{song_id}/` |
 
 ---
 
@@ -207,40 +215,3 @@ Base URL: `http://localhost:8000/api`
 | 405    | Method not allowed                           |
 
 ---
-
-## Use Case
-
-### Song Generation
-
-```mermaid
-sequenceDiagram
-    actor C as Client
-    participant GC as GeneratorController
-    participant GFTP as GenerateFormTemplate
-    participant S as Song
-    participant SN as Suno API
-    participant LS as Local Storage
-
-    C->>GC: Request for Generation Page
-    GC->>GFTP: Get Template
-    GFTP-->>GC: HTML
-    GC-->>C: Return Generation Page
-    C->>GC: Submit Generation Request
-    GC->>S: Save Song (status: PENDING)
-    S-->>GC: Confirmation
-    GC->>SN: Call Suno API
-    SN-->>GC: Accepted (wait for callback)
-    GC-->>C: Generation In Progress
-
-    SN--)GC: Callback Received
-
-    alt Callback Success
-        GC->>S: Update Song (status: SUCCESS)
-        GC->>LS: Download song from callback URL
-        LS-->>GC: File saved
-        GC-->>C: Song Ready
-    else Callback Failure
-        GC->>S: Update Song (status: FAILED)
-        GC-->>C: Generation Failed
-    end
-```
