@@ -156,10 +156,10 @@ npm run dev
 
 ### Architecture Diagrams
 
-| Diagram | Description |
-| ------- | ----------- |
-| [Layer Architecture](./docs/architecture.md) | UI / Controller / Model layer breakdown with color-coded Mermaid class diagram |
-| [Generate Song Sequence](./docs/generate-song-sequence.md) | Full sequence diagram for song generation flow including 9 alternative use cases (validation errors, Suno failures, mock strategy, callback handling) |
+| Diagram                                               | Description                                                                                                                                           |
+| ----------------------------------------------------- | ----------------------------------------------------------------------------------------------------------------------------------------------------- |
+| [Layer Architecture](./architecture.md)               | UI / Controller / Model layer breakdown with color-coded Mermaid class diagram                                                                        |
+| [Generate Song Sequence](./generate-song-sequence.md) | Full sequence diagram for song generation flow including 9 alternative use cases (validation errors, Suno failures, mock strategy, callback handling) |
 
 ### CRUD API Reference
 
