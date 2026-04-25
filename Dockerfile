@@ -25,6 +25,9 @@ COPY . .
 
 RUN cd frontend && npm run build
 
+# Ensure start.sh has unix line endings
+RUN sed -i 's/\r$//' start.sh
+
 EXPOSE 3000 8000
 
 CMD ["bash", "./start.sh"]
