@@ -215,3 +215,12 @@ Base URL: `http://localhost:8000/api`
 | 405    | Method not allowed                           |
 
 ---
+
+### Demonstration
+
+1. Fill generation form then click generating
+   <image src="./asset/Generating.png" width="100%" height="auto" alt="generating" />
+2. After finish generating the song will show up in your library
+   <image src="./asset/Library.png" width="100%" height="auto" alt="library" />
+3. In Database we will that we have the record of song in table
+   <image src="./asset/Database_log.png" width="100%" height="auto" alt="library" />
